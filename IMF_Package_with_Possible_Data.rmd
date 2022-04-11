@@ -1,0 +1,47 @@
+---
+title: "IMF API"
+author: "John Marion"
+date: "2/27/2022"
+output: html_document
+---
+
+Additional information about the package here: https://datahelp.imf.org/knowledgebase/articles/1968408-how-to-use-the-api-python-and-r
+
+Package documentation here: https://cran.r-project.org/web/packages/imfr/imfr.pdf
+
+```{r}
+#install.packages('imfr')
+library(imfr) #The IMF R package - allows for data collection
+```
+
+```{r}
+dbases<-imf_ids() # A list of the databases that are accessible
+head(dbases)
+```
+
+```{r}
+ifs_list<-imf_codelist('IFS') # A list of the aspects inside the IFS database. The important one for us is the indicators
+ifs_list
+```
+
+
+```{r}
+ifs_codes<-imf_codes('CL_INDICATOR_IFS') # A list of the indicators in the IFS database and their codes. the CL_INDICATOR_IFS was taken from ifs_list
+head(ifs_codes)
+```
+```{r}
+ifs_codes$description[grepl('IMF',ifs_codes$description)] #I tried a few searches, trying to find a variable for the general total. The bottom one here seems like it might be what we're after.
+```
+```{r}
+ifs_codes[ifs_codes$description=="Balance of Payments, Supplementary Items, Net Credit and Loans from the IMF (Excluding Reserve Position), US Dollars",]
+```
+
+```{r}
+possible_data<-imf_data(database_id = 'IFS', indicator = 'BIMF_CD_BP6_USD')
+dim(possible_data)
+```
+
+```{r}
+head(possible_data)
+```
+

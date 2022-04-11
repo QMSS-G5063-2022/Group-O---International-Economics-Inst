@@ -1,0 +1,28 @@
+---
+title: "Reporters Sans Frontiers"
+author: "John Marion"
+date: "3/26/2022"
+output: html_document
+---
+Information regarding Press Freedom. Data file called index_2021_pour_import_-_index_2020_-_pour_import_1_1_-_index_2020_-_pour_import_1_1.csv
+```{r}
+library(dplyr)
+f<-file.choose()
+```
+
+```{r}
+RSF<-read.csv(f)
+
+RSF<-rename(RSF, Underlying_situation_score = Score.A, Abuse_score = Sco.Exa)
+
+RSF_small<-RSF[c('ISO','Rank2021', 'EN_country', 'Underlying_situation_score', 'Abuse_score', 'Score.2020')]
+
+RSF_small$Underlying_situation_score<-as.numeric(sub(",", ".", RSF_small$Underlying_situation_score))
+
+RSF_small$Abuse_score<-as.numeric(sub(",", ".", RSF_small$Abuse_score))
+
+RSF_small$Underlying_situation_score<-as.numeric(sub(",", ".", RSF_small$Underlying_situation_score))
+
+RSF_small$Score.2020<-as.numeric(sub(",", ".", RSF_small$Score.2020))
+```
+

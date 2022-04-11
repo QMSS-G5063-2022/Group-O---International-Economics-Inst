@@ -1,0 +1,16 @@
+---
+title: "Vdem"
+author: "John Marion"
+date: "3/26/2022"
+output: html_document
+---
+
+```{r}
+library(devtools)
+devtools::install_github("vdeminstitute/vdemdata")
+
+library(vdemdata)
+f<-vdem
+head(f)
+```
+
