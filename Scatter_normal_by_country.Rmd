@@ -1,0 +1,56 @@
+---
+title: "Untitled"
+author: "John Marion"
+date: "4/13/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(vdemdata)
+f<-vdem
+f<-rename(f,Country=country_name)
+f$year<-as.numeric(f$year)
+f<-filter(f, year>1990)
+
+chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
+```
+
+```{r}
+f$v2x_egaldem<-as.numeric(f$v2x_egaldem)
+f<-f %>%
+  group_by(Country) %>%
+  mutate(dem_std = (v2x_egaldem-mean(v2x_egaldem, na.rm=T))/sd(v2x_egaldem))
+```
+
+```{r}
+chn_inv<-chn_inv %>%
+  group_by(Year, Country) %>%
+  mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
+```
+
+```{r}
+chn_inv[chn_inv$Country=="USA",]$Country<-"United States of America"
+chn_inv[chn_inv$Country=="Russian Federation",]$Country<-"Russia"
+chn_inv[chn_inv$Country=="Britain",]$Country<-"United Kingdom"
+chn_inv[chn_inv$Country=="Trinidad-Tobago",]$Country<-"Trinidad and Tobago"
+chn_inv[chn_inv$Country=="Congo",]$Country<-"Republic of the Congo"
+chn_inv[chn_inv$Country=="UAE",]$Country<-"United Arab Emirates"
+chn_inv[chn_inv$Country=="Sao Tome",]$Country<-"Sao Tome and Principe"
+chn_inv[chn_inv$Country=="Bosnia",]$Country<-"Bosnia and Herzegovina"
+chn_inv[chn_inv$Country=="Macedonia",]$Country<-"North Macedonia"
+
+f[f$Country=="Burma/Myanmar",]$Country<-"Myanmar"
+```
+
+```{r}
+ggplot(inner_join(f, chn_inv,by="Country"), aes(x=log(inv_tot), y=dem_std))+
+  geom_point(alpha=.01)+
+  geom_smooth(method="lm")
+```
+
