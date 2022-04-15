@@ -241,6 +241,7 @@ mapcoords <- coord_fixed(xlim = c(-150, 180), ylim = c(-55, 80))
 ```
 
 ```{r}
+library(ggthemes)
 ggplot(nodes) + country_shapes + scale_fill_gradient(low='#F5ECFF',high='#4848C5')+
   geom_curve(aes(x = x, y = y, xend = xend, yend = yend,    
                  color = inv,alpha = inv),
@@ -252,6 +253,8 @@ ggplot(nodes) + country_shapes + scale_fill_gradient(low='#F5ECFF',high='#4848C5
   geom_point(aes(x = lon, y = lat),           # draw nodes
              shape = 21, fill = 'white',
              color = 'black', stroke = 0.5) +
+  theme_map()+
+  
   #scale_size_continuous(guide = FALSE, range = c(1, 6)) +    
   #geom_text(aes(x = lon, y = lat, label = name),             
    #         hjust = 0, nudge_x = 1, nudge_y = 4,
@@ -301,3 +304,88 @@ ggplot(imf07, aes(fill=IMF_cred))+
 ```
 
 I know this is rather ugly, but it's just so we can actually see a template and edit/critique it. One thing I notice is that countries that didn't interact with the IMF are coded as NA, so we'll have to decide what to do there.
+
+```{r}
+library(rgdal)
+worldmap = readOGR(dsn= "Nat_world_map", layer="ne_50m_admin_0_countries")
+
+worldmap@data[worldmap@data$NAME=="United States of America",]$NAME<-"United States"
+worldmap@data[worldmap@data$NAME=="Congo",]$NAME<-"Rep. of Congo"
+worldmap@data[worldmap@data$NAME=="South Korea",]$NAME<-"Korea"
+worldmap@data[worldmap@data$NAME=="North Korea",]$NAME<-"Dem. Rep. Korea"
+worldmap@data[worldmap@data$NAME=="Czechia",]$NAME<-"Czech Rep."
+worldmap@data[worldmap@data$NAME=="CÃ´te d'Ivoire",]$NAME<-"Cote d'Ivoire"
+worldmap@data[worldmap@data$NAME=="Cabo Verde",]$NAME<-"Cape Verde"
+worldmap@data[worldmap@data$NAME=="Trinidad and Tobago",]$NAME<-"Trinidad & Tobago"
+worldmap@data[worldmap@data$NAME=="Eq. Guinea",]$NAME<-"Equatorial Guinea"
+worldmap@data[worldmap@data$NAME=="Bosnia and Herz.",]$NAME<-"Bosnia"
+worldmap@data[worldmap@data$NAME=="Antigua and Barb.",]$NAME<-"Antigua and Barbuda"
+worldmap@data[worldmap@data$NAME=="Solomon Is.",]$NAME<-"Solomon Islands"
+worldmap@data[worldmap@data$NAME=="SÃ£o TomÃ© and Principe",]$NAME<-"Sao Tome"
+```
+```{r}
+library(leaflet)
+```
+
+```{r}
+imf07[imf07$name=="USA",]$name<-"United States" 
+imf07[imf07$name=="UK",]$name<-"United Kingdom"
+imf07[imf07$name=="Bosnia and Herzegovina",]$name<-"Bosnia"
+imf07[imf07$name=="Democratic Republic of the Congo",]$name<-"Dem. Rep. Congo"
+imf07[imf07$name=="Ivory Coast",]$name<-"Cote d'Ivoire"
+imf07[imf07$name=="Republic of Congo",]$name<-"Rep. of Congo"
+imf07[imf07$name=="Czech Republic",]$name<-"Czech Rep."
+imf07[imf07$name=="South Korea",]$name<-"Korea"
+imf07[imf07$name=="North Korea",]$name<-"Dem. Rep. Korea"
+imf07[imf07$name=="Sao Tome and Principe",]$name<-"Sao Tome"
+imf07[imf07$name=="Trinidad and Tobago",]$name<-"Trinidad & Tobago"
+imf07[imf07$name=="Macao SAR, China",]$name<-"Macao"
+imf07[imf07$name=="Central African Republic",]$name<-"Central African Rep."
+imf07[imf07$name=="Kyrgzstan",]$name<-"Kyrgyzstan"
+imf07[imf07$name=="Virgin Islands (U.S.)",]$name<-"U.S. Virgin Is."
+imf07[imf07$name=="British Virgin Islands",]$name<-"British Virgin Is."
+imf07[imf07$name=="Dominican Republic",]$name<-"Dominican Rep."
+
+imf07<-imf07[!duplicated(imf07$name), -c(1:4)]
+imf07<-filter(imf07, !name %in% setdiff(imf07$name, worldmap@data$NAME))
+```
+There are more country names that could be converted, but they're tiny islands, so I'm going to ignore them for now and do it later if we decide to. I also now realize that the worldmap data has ISO codes that would probably be better to use. I'll update stuff if we like these and want to move forward with them. I also plan to add popups when you scroll over a country with some general info. Do we have any specific things we want in those popups?
+
+Also, I'd like to crop the maps so Antarctica isn't taking up so much space, but I'm not sure how to do that at the moment. I'll look more into it if we want.
+
+```{r}
+map<-function(which){
+  if(which=="China"){
+    j<-worldmap@data %>%
+      full_join(inv07, by=c(NAME="name"))
+    worldmap@data<-j
+
+    pal<-colorNumeric(palette="Reds", domain=worldmap@data$inv_tot)
+
+    leaflet(data=worldmap) %>%
+      addPolygons(weight=.5, color=~pal(inv_tot), fillOpacity = .75)
+  }
+
+  else if(which=="IMF"){
+    j<-worldmap@data %>%
+      full_join(imf07, by=c(NAME="name"))
+    worldmap@data<-j
+
+    pal<-colorNumeric(palette="Blues", domain=worldmap@data$IMF_cred)
+
+    leaflet(data=worldmap) %>%
+      addPolygons(weight=.5, color=~pal(IMF_cred), fillOpacity = .75)
+  }}
+```
+
+```{r}
+map("China")
+```
+
+
+```{r}
+map("IMF")
+```
+
+
+
