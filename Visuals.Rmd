@@ -1,0 +1,164 @@
+---
+title: "Visuals"
+author: "Sali Mahdy"
+date: '2022-04-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(ggalt)
+library(dplyr)
+library(ggmap)
+library(rgdal)
+library(sp)
+library(sf)
+library(ggthemes)
+library(leaflet)
+library(geojsonio)
+library(broom)
+library(leafsync)
+library(RColorBrewer)
+library(DT)
+library(tmap)
+library(rnaturalearth)
+library(wbstats)
+library(magick)
+library(knitr)
+library(devtools)
+library(gifski)
+```
+
+Animated Gini
+```{r}
+wb(indicator="SI.POV.GINI", country="countries_only", startdate=1967, enddate=2019)
+```
+
+
+```{r}
+wb_data_create2=function(indicator, new_name, year1, year2, ...){
+  df=wb(country='countries_only', indicator=indicator, 
+        startdate=year1, enddate=year2, ...) %>%
+    select(iso_a2=iso2c, value, year=date)%>%
+    mutate(indicator=new_name)%>%
+    spread(indicator, value)%>%
+    as_data_frame()
+  
+  df
+}
+```
+
+
+```{r}
+wb_data_create2('SI.POV.GINI', 'Gini', 1967, 2019)
+```
+
+```{r}
+df<- wb_data_create2('SI.POV.GINI', 'Gini', 1967, 2019)
+
+```
+
+```{r}
+world=ne_countries(returnclass='sf')%>%
+  select(iso_a2, name_long, continent)
+```
+
+```{r}
+data_gini_wide=df%>%
+  spread(year, Gini)
+
+world_temporal<-world%>%
+  left_join(data_gini_wide, by='iso_a2')%>%
+  gather(year, gini, '1978':'2013')
+```
+
+
+```{r}
+
+robin <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
+gini_ani<-tm_shape(world_temporal, projection=robin)+ 
+  tm_fill(col='gini', title='Gini', palette = 'plasma')+
+  tm_facets(along='year')+tm_layout(frame=FALSE)
+
+
+tmap_animation(gini_ani, filename='Animation.gif', width=1500, height=600, delay=100)
+```
+
+
+Animated Poverty 
+```{r}
+wb(indicator="SI.POV.NAHC", country="countries_only", startdate=1985, enddate=2019)
+```
+
+
+
+```{r}
+wb_data_create2=function(indicator, new_name, year1, year2, ...){
+  df=wb(country='countries_only', indicator=indicator, 
+        startdate=year1, enddate=year2, ...) %>%
+    select(iso_a2=iso2c, value, year=date)%>%
+    mutate(indicator=new_name)%>%
+    spread(indicator, value)%>%
+    as_data_frame()
+  
+  df
+}
+```
+
+
+```{r}
+df_p<- wb_data_create2('SI.POV.NAHC', 'Poverty Headcount Ratio (National Poverty Lines)', 1985, 2019)
+
+```
+
+```{r}
+world=ne_countries(returnclass='sf')%>%
+  select(iso_a2, name_long, continent)
+```
+
+```{r}
+data_poverty_wide=df_p%>%
+  spread(year, 'Poverty Headcount Ratio (National Poverty Lines)')
+
+world_temporal_p<-world%>%
+  left_join(data_poverty_wide, by='iso_a2')%>%
+  gather(year, 'Poverty Headcount Ratio (National Poverty Lines)', '1985':'2019')
+```
+
+
+```{r}
+
+robin <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
+gini_ani_p<-tm_shape(world_temporal_p, projection=robin)+ 
+  tm_fill(col='Poverty Headcount Ratio (National Poverty Lines)', title='Poverty Headcount Ratio (National Poverty Lines)', palette = 'plasma')+
+  tm_facets(along='year')+tm_layout(frame=FALSE)
+
+
+tmap_animation(gini_ani_p, filename='Animation_Poverty.gif', width=1500, height=600, delay=100)
+```
+
+
+
+
+
+```{r}
+china<-read.csv('AidDatasGlobalChineseDevelopmentFinanceDataset_v2.0.csv')
+```
+
+
+```{r}
+africa<-china%>%
+  select(Recipient, Recipient.Region, Commitment.Year, Flow.Type, Concessional, Sector.Name, Funding.Agencies.Type, Amount..Original.Currency., Amount..Constant.USD2017., Interest.Rate)%>%
+  filter(Commitment.Year=='2017', Recipient.Region=='Africa') 
+```
+
+
