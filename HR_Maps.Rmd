@@ -348,6 +348,7 @@ imf07[imf07$name=="Dominican Republic",]$name<-"Dominican Rep."
 
 imf07<-imf07[!duplicated(imf07$name), -c(1:4)]
 imf07<-filter(imf07, !name %in% setdiff(imf07$name, worldmap@data$NAME))
+imf07$IMF_cred<-as.numeric(imf07$IMF_cred)
 ```
 There are more country names that could be converted, but they're tiny islands, so I'm going to ignore them for now and do it later if we decide to. I also now realize that the worldmap data has ISO codes that would probably be better to use. I'll update stuff if we like these and want to move forward with them. I also plan to add popups when you scroll over a country with some general info. Do we have any specific things we want in those popups?
 
@@ -355,26 +356,40 @@ Also, I'd like to crop the maps so Antarctica isn't taking up so much space, but
 
 ```{r}
 map<-function(which){
+  inv07<-inv07[!duplicated(inv07$name), c("name","inv_tot")]
   if(which=="China"){
     j<-worldmap@data %>%
-      full_join(inv07, by=c(NAME="name"))
+      left_join(inv07, by=c(SOVEREIGNT="name"))
     worldmap@data<-j
+    
+    f<-worldmap@data$inv_tot
+    f[is.na(f)]<-0
+    
+    pop_cont<-paste0("Country: ", worldmap@data$SOVEREIGNT, "<br>",
+                     "Investment from China (in Millions): $", f)
 
     pal<-colorNumeric(palette="Reds", domain=worldmap@data$inv_tot)
 
     leaflet(data=worldmap) %>%
-      addPolygons(weight=.5, color=~pal(inv_tot), fillOpacity = .75)
+      setView(lat=40, lng=0 , zoom=1.4)%>%
+      addPolygons(weight=.5, color=~pal(inv_tot), fillOpacity = .75, popup=pop_cont, highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
+      addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
   }
 
   else if(which=="IMF"){
     j<-worldmap@data %>%
-      full_join(imf07, by=c(NAME="name"))
+      left_join(imf07, by=c(NAME="name"))
     worldmap@data<-j
+    
+    pop_cont<-paste0("Country: ", worldmap@data$SOVEREIGNT, "<br>",
+                     "IMF Investment (In Millions: $", round(worldmap@data$IMF_cred/1000000, 0))
 
     pal<-colorNumeric(palette="Blues", domain=worldmap@data$IMF_cred)
 
     leaflet(data=worldmap) %>%
-      addPolygons(weight=.5, color=~pal(IMF_cred), fillOpacity = .75)
+      setView(lat=40, lng=0, zoom=1.4)%>%
+      addPolygons(weight=.5, color=~pal(IMF_cred), fillOpacity = .75, popup=pop_cont, highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
+      addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
   }}
 ```
 
@@ -386,6 +401,10 @@ map("China")
 ```{r}
 map("IMF")
 ```
+
+
+
+
 
 
 

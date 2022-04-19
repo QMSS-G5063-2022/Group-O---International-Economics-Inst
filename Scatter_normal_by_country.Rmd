@@ -105,7 +105,7 @@ ggplot(imf[!duplicated(imf$year),])+
 
 ```{r}
 ggplot()+
-  geom_line(data=imf[!duplicated(imf$year),], aes(x=year,y=ann_imf/10000), color="blue")+
+  geom_line(data=imf[!duplicated(imf$year),], aes(x=year,y=ann_imf/1000000), color="blue")+
   geom_vline(xintercept=2016, linetype="dotted", alpha=.5)+
   geom_line(data=chn_inv[!duplicated(chn_inv$Year),], aes(x=Year,y=ann_tot), color="red")+
   theme_classic()
