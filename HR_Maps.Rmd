@@ -186,8 +186,7 @@ plot.network(Net,
 library(ggplot2)
 library(GGally)
 # ggnet(Net,coord=cbind(Net%v%'lon',Net%v%'lat'))
-```
-```{r}
+
 library(dplyr)
 library(purrr)
 library(igraph)
