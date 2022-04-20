@@ -1,0 +1,20 @@
+
+# vars 1-29 are from the human rights set
+# vars 30-34 are press freedom
+# vars 35-74 are democracy indices
+# vars 75 gini
+# var 76 is poverty headcount (HCR)
+# var 77-82 is world bank investment
+# var 83 is chinese investment
+
+
+will add more chinese data later
+
+to pivot wider for a variable of interest, use the code:
+
+wide <- joined_data %>% 
+  select(country_name, YEAR, x) %>%
+  pivot_wider(names_from = YEAR,
+              values_from = x)
+              
+where x is the variable of interest         
