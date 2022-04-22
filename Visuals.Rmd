@@ -34,6 +34,10 @@ library(magick)
 library(knitr)
 library(devtools)
 library(gifski)
+library(plotly)
+library(MetBrewer)
+library(gganimate)
+library(MetBrewer)
 ```
 
 Animated Gini
@@ -89,7 +93,7 @@ gini_ani<-tm_shape(world_temporal, projection=robin)+
   tm_facets(along='year')+tm_layout(frame=FALSE)
 
 
-tmap_animation(gini_ani, filename='Animation.gif', width=1500, height=600, delay=100)
+tmap_animation(gini_ani, filename='Animation_Gini.gif', width=1500, height=600, delay=100)
 ```
 
 
@@ -97,7 +101,6 @@ Animated Poverty
 ```{r}
 wb(indicator="SI.POV.NAHC", country="countries_only", startdate=1985, enddate=2019)
 ```
-
 
 
 ```{r}
@@ -112,7 +115,6 @@ wb_data_create2=function(indicator, new_name, year1, year2, ...){
   df
 }
 ```
-
 
 ```{r}
 df_p<- wb_data_create2('SI.POV.NAHC', 'Poverty Headcount Ratio (National Poverty Lines)', 1985, 2019)
@@ -148,17 +150,184 @@ tmap_animation(gini_ani_p, filename='Animation_Poverty.gif', width=1500, height=
 
 
 
-
-
 ```{r}
 china<-read.csv('AidDatasGlobalChineseDevelopmentFinanceDataset_v2.0.csv')
+china_military<-read.csv('MilitaryAidDatasGlobalChineseDevelopmentFinanceDataset_v2.0.csv')
+```
+
+Chinese Development Aid by Region
+```{r}
+dev<-china%>%
+  select(Commitment.Year, Recipient.Region)%>%
+  group_by(Commitment.Year, Recipient.Region)%>%
+             summarize(frequency=n())%>%
+  filter(Recipient.Region!='Multi-Region')
+
+names(dev)[1]<-'Year'
+names(dev)[2]<-'Region'
+names(dev)[3]<-'Number'
+  
+```
+
+```{r}
+china_dev<-ggplot(dev, aes(x=Year, y=Number, color=Region))+
+  geom_line()+
+  geom_point()+
+  labs(x='', y='', title='Chinese Development Aid by Region, 2000-2017')+
+  scale_color_manual(values=met.brewer("OKeeffe1", n=6, type='continuous'))
+
+```
+
+```{r}
+ggplotly(china_dev)
+
+```
+
+Chinese Development Flow Types to Africa (Animated Bar Plot)
+```{r}
+africa_flow<-china%>%
+  select(Recipient.Region, Recipient, Flow.Type, Commitment.Year, Concessional, Sector.Name, Amount..Constant.USD2017.)%>%
+  filter(Recipient.Region=='Africa')%>%
+  filter(Commitment.Year==2000 | Commitment.Year==2017)%>%
+  group_by(Commitment.Year, Recipient.Region, Flow.Type)%>%
+  summarize(frequency=n())
+
+
+anim<-ggplot(africa_flow, aes(x=Flow.Type, y=frequency, fill=Flow.Type))+ 
+  geom_bar(stat='identity')+
+  coord_flip()+
+  theme_bw()+
+  guides(fill=F)+
+  transition_time(Commitment.Year)+
+  labs(title='China Development Flow Types to Africa', subtitle = 'Year: {frame_time}', y='', x='')
+  
+  #scale_color_manual(values=met.brewer("OKeeffe1", n=9, type='continuous'))
+
+animate(anim, 200, fps=10,  renderer = gifski_renderer('ChinaFlowType.gif'))
+
+```
+
+Chinese Grant Types to Africa
+```{r}
+type<-china%>%
+  select(Recipient.Region, Recipient, Flow.Type, Commitment.Year, Concessional, Sector.Name, Amount..Constant.USD2017.)%>%
+  filter(Recipient.Region=='Africa', Flow.Type=='Grant')%>%
+  group_by(Sector.Name)%>%
+  summarize(frequency=n())%>%
+  arrange(desc(frequency))%>%
+  slice(10:1)
+
+ggplot(type, aes(x=Sector.Name, y=frequency, fill=Sector.Name))+ 
+  geom_bar(stat='identity')+
+  coord_flip()+
+  theme_bw()+
+  guides(fill=F)+
+  labs(title='China Development Flow Types to Africa', y='', x='')
+  
+```
+
+
+Chinese Military Aid by Region
+```{r}
+mil<-china_military%>%
+  select(Commitment.Year, Recipient.Region)%>%
+  group_by(Commitment.Year, Recipient.Region)%>%
+             summarize(frequency=n())%>%
+  filter(Recipient.Region!='Multi-Region')
+
+names(mil)[1]<-'Year'
+names(mil)[2]<-'Region'
+names(mil)[3]<-'Number'
+
+```
+
+```{r}
+china_mil<-ggplot(mil, aes(x=Year, y=Number, color=Region))+
+  geom_line()+
+  geom_point()+
+  labs(x='', y='', title='Chinese Military Aid by Region, 2000-2017')+
+  scale_color_manual(values=met.brewer("OKeeffe1", n=6, type='continuous'))
+```
+
+```{r}
+ggplotly(china_mil)
+```
+
+
+Chinese Aid Impact on Human Rights Scores
+
+```{r}
+hr<-read_csv('human-rights-protection.csv')
 ```
 
 
 ```{r}
-africa<-china%>%
-  select(Recipient, Recipient.Region, Commitment.Year, Flow.Type, Concessional, Sector.Name, Funding.Agencies.Type, Amount..Original.Currency., Amount..Constant.USD2017., Interest.Rate)%>%
-  filter(Commitment.Year=='2017', Recipient.Region=='Africa') 
+data_hr_wide=hr_map%>%
+  spread(Year, 'Human rights protection')
+
+world_temporal_hr<-world%>%
+  left_join(data_hr_wide, by='iso_a2')%>%
+  gather(Year, 'Human rights protection', '2000':'2019')
 ```
+
+
+```{r}
+
+robin <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
+hr_ani<-tm_shape(world_temporal_hr, projection=robin)+ 
+  tm_fill(col='Human rights protection', title='Human Rights Protection', palette = 'plasma')+
+  tm_facets(along='Year')+tm_layout(frame=FALSE)
+
+
+tmap_animation(hr_ani, filename='Animation_HR.gif', width=1500, height=600, delay=100)
+```
+
+
+Human Rights in Africa
+```{r}
+hr_africa<-hr_map%>%
+  filter(continent=='Africa')
+```
+
+```{r}
+data_hra_wide=hr_africa%>%
+  spread(Year, 'Human rights protection')
+
+world_temporal_hra<-world%>%
+  left_join(data_hra_wide, by='iso_a2')%>%
+  gather(Year, 'Human rights protection', '2000':'2019')
+```
+
+```{r}
+
+robin <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
+hra_ani<-tm_shape(world_temporal_hra, projection=robin)+ 
+  tm_fill(col='Human rights protection', title='Human Rights Protection', palette = 'plasma')+
+  tm_facets(along='Year')+tm_layout(frame=FALSE)
+
+
+tmap_animation(hra_ani, filename='Animation_HRAfrica.gif', width=1500, height=600, delay=100)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
