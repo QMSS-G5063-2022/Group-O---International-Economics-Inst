@@ -20,9 +20,40 @@ worldmap@data[worldmap@data$NAME=="Antigua and Barb.",]$NAME<-"Antigua and Barbu
 worldmap@data[worldmap@data$NAME=="Solomon Is.",]$NAME<-"Solomon Islands"
 worldmap@data[worldmap@data$NAME==unique(worldmap@data$NAME)[grep("Tom",unique(worldmap@data$NAME))],]$NAME<-"Sao Tome"
 
+worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
+worldmap@data[worldmap@data$NAME_EN=="Ivory Coast",]$NAME_EN<-"Cote d'Ivoire"
+worldmap@data[worldmap@data$NAME_EN=="Democratic Republic of the Congo",]$NAME_EN<-"Congo, Dem. Rep."
+worldmap@data[worldmap@data$NAME_EN=="Republic of the Congo",]$NAME_EN<-"Congo, Rep."
+worldmap@data[worldmap@data$NAME_EN=="Cape Verde",]$NAME_EN<-"Cabo Verde"
+worldmap@data[worldmap@data$NAME_EN=="Egypt",]$NAME_EN<-"Egypt, Arab Rep."
+worldmap@data[worldmap@data$NAME_EN=="Iran",]$NAME_EN<-"Iran, Islamic Rep."
+worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia, Fed. Sts."
+worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia, The"
+worldmap@data[worldmap@data$NAME_EN=="Kyrgyzstan",]$NAME_EN<-"Kyrgyz Republic"
+worldmap@data[worldmap@data$NAME_EN=="Saint Kitts and Nevis",]$NAME_EN<-"St. Kitts and Nevis"
+worldmap@data[worldmap@data$NAME_EN=="Laos",]$NAME_EN<-"Lao PDR"
+worldmap@data[worldmap@data$NAME_EN=="Russia",]$NAME_EN<-"Russian Federation"
+worldmap@data[worldmap@data$NAME_EN=="Venezuela",]$NAME_EN<-"Venezuela, RB"
+worldmap@data[worldmap@data$NAME_EN=="Yemen",]$NAME_EN<-"Yemen, Rep."
+worldmap@data[worldmap@data$NAME_EN=="Saint Lucia",]$NAME_EN<-"St. Lucia"
+worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Tom", unique(worldmap@data$NAME_EN))],]$NAME_EN<-"Sao Tome and Principe"
+worldmap@data[worldmap@data$NAME_EN=="East Timor",]$NAME_EN<-"Timor-Leste"
+worldmap@data[worldmap@data$NAME_EN=="Syria",]$NAME_EN<-"Syrian Arab Republic"
+worldmap@data[worldmap@data$NAME_EN=="The Bahamas",]$NAME_EN<-"Bahamas, The"
+worldmap@data[worldmap@data$NAME_EN=="Hong Kong",]$NAME_EN<-"Hong Kong SAR, China"
+worldmap@data[worldmap@data$NAME_EN=="North Korea",]$NAME_EN<-"Korea, Dem. People's Rep."
+worldmap@data[worldmap@data$NAME_EN=="South Korea",]$NAME_EN<-"Korea, Rep."
+worldmap@data[worldmap@data$NAME_EN=="Saint Vincent and the Grenadines",]$NAME_EN<-"St. Vincent and the Grenadines"
+worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"United States"
+worldmap@data[worldmap@data$NAME_EN=="Sint Maarten",]$NAME_EN<-"Sint Maarten (Dutch Part)"
+worldmap@data[worldmap@data$NAME_EN=="Saint Martin",]$NAME_EN<-"Saint Martin (French Part)"
+worldmap@data[worldmap@data$NAME_EN=="Slovakia",]$NAME_EN<-"Slovak Republic"
+worldmap@data[worldmap@data$NAME_EN=="United States Virgin Islands",]$NAME_EN<-"Virgin Islands (U.S.)"
+
 ui<-fluidPage(h1="Map Fun",
               sliderInput("year", label="Select Year", min=2005, max=2020, value=2015, sep=""),
               #radioButtons("which","Investment Source",choices=c("China","IMF")),
+              selectInput("var","Select Variable to Map", choices=c("Investment", "GDP Growth", "Democracy Score")),
               checkboxInput("net","Display Network"),
               #actionButton("button","Plot"),
               leafletOutput("leaf_c"),
@@ -50,7 +81,7 @@ server<-function(input, output){
     chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
     chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
     chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
-      
+    
     inv_y<-filter(chn_inv, Year==input$year)
     inv_y<-inv_y[!duplicated(inv_y$Country),c("Country","inv_tot")]
     inv_y$inv_tot<-as.numeric(inv_y$inv_tot)
@@ -63,77 +94,123 @@ server<-function(input, output){
     worldmap@data[worldmap@data$sov_low=="czechia",]$sov_low<-"czech republic"
     worldmap@data[worldmap@data$sov_low=="east timor",]$sov_low<-"timor-leste"
     worldmap@data[worldmap@data$sov_low=="united republic of tanzania",]$sov_low<-"tanzania"
-      
-    worldmap@data<-left_join(worldmap@data, inv_y, by=c("sov_low"="Country"))
-    worldmap}) # End eventReactive making dat_c
     
+    worldmap@data<-left_join(worldmap@data, inv_y, by=c("sov_low"="Country"))
+    
+    if(input$var=="GDP Growth"){
+      gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
+      gdp$NY.GDP.MKTP.KD.ZG<-round(gdp$NY.GDP.MKTP.KD.ZG,2)
+      gdp<-filter(gdp, !country %in% unique(gdp$country)[1:49])
+      gdp<-rename(gdp, Year=year, name=country, gdp_growth=`NY.GDP.MKTP.KD.ZG`)
+      #gdp$z<-(gdp$gdp_growth-mean(gdp$gdp_growth, na.rm=T))/sd(gdp$gdp_growth,na.rm = T)
+      #gdp$mean_scaled<-(gdp$gdp_growth/mean(gdp$gdp_growth,na.rm=T))
+      #gdp$min_max<-(gdp$gdp_growth-min(gdp$gdp_growth, na.rm=T))/(max(gdp$gdp_growth,na.rm=T)-min(gdp$gdp_growth,na.rm=T))
+      gdp$growth_fac<-ifelse(-10>=gdp$gdp_growth,1, ifelse(gdp$gdp_growth<= -2.5 & gdp$gdp_growth>-10, 2, 
+                                                           ifelse(gdp$gdp_growth<= 0 & gdp$gdp_growth>-2.5, 3, 
+                                                                  ifelse(gdp$gdp_growth<= 2.5 & gdp$gdp_growth>0, 4, 
+                                                                         ifelse(gdp$gdp_growth<= 5 & gdp$gdp_growth>2.5, 5, 
+                                                                                ifelse(gdp$gdp_growth<= 10 & gdp$gdp_growth>5, 6, 
+                                                                                       ifelse(gdp$gdp_growth>10, 7, 0)))))))
+      
+      gdp_y<-filter(gdp, Year==input$year)
+      worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
+    }else if(input$var=="Democracy Score"){
+      library(vdemdata)
+      dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem")],year>2004)
+      dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
+      dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
+      dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
+      dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
+      
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
+      worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
+    }
+    worldmap
+
+    }) # End eventReactive making dat_c
+  
   dat_i<-reactive({
     imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
     imf<-filter(imf, !country %in% unique(imf$country)[1:49])
     imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-    imf[imf$name=="Bahamas, The",]$name<-"The Bahamas"
-    imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
+    #imf[imf$name=="Bahamas, The",]$name<-"The Bahamas"
+    #imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
     #imf[imf$name=="China",]$name<-"People's Republic of China"
-    imf[imf$name=="Congo, Rep.",]$name<-"Republic of the Congo"
-    imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
-    imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
-    imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
-    imf[imf$name=="Gambia, The",]$name<-"Gambia"
-    imf[imf$name=="Hong Kong SAR, China",]$name<-"Hong Kong"
-    imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
-    imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
-    imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
-    imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
-    imf[imf$name=="Lao PDR",]$name<-"Laos"
-    imf[imf$name=="Russian Federation",]$name<-"Russia"
-    imf[imf$name=="Micronesia, Fed. Sts.",]$name<-"Micronesia"
-    imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
-    imf[imf$name=="Slovak Republic",]$name<-"Slovakia"
-    imf[imf$name=="Sint Maarten (Dutch part)",]$name<-"Sint Maarten"
-    imf[imf$name=="St. Martin (French part)",]$name<-"Saint Martin"
-    imf[imf$name=="St. Kitts and Nevis",]$name<-"Saint Kitts and Nevis"
-    imf[imf$name=="St. Lucia",]$name<-"Saint Lucia"
-    imf[imf$name=="St. Vincent and the Grenadines",]$name<-"Saint Vincent and the Grenadines"
-    imf[imf$name=="Timor-Leste",]$name<-"East Timor"
-    imf[imf$name=="United States",]$name<-"USA"
-    imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
-    imf[imf$name=="Virgin Islands (U.S.)",]$name<-"United States Virgin Islands"
-    imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
-       
+    #imf[imf$name=="Congo, Rep.",]$name<-"Republic of the Congo"
+    #imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
+    #imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
+    #imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
+    #imf[imf$name=="Gambia, The",]$name<-"Gambia"
+    #imf[imf$name=="Hong Kong SAR, China",]$name<-"Hong Kong"
+    #imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
+    #imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
+    #imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
+    #imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
+    #imf[imf$name=="Lao PDR",]$name<-"Laos"
+    #imf[imf$name=="Russian Federation",]$name<-"Russia"
+    #imf[imf$name=="Micronesia, Fed. Sts.",]$name<-"Micronesia"
+    #imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
+    #imf[imf$name=="Slovak Republic",]$name<-"Slovakia"
+    #imf[imf$name=="Sint Maarten (Dutch part)",]$name<-"Sint Maarten"
+    #imf[imf$name=="St. Martin (French part)",]$name<-"Saint Martin"
+    #imf[imf$name=="St. Kitts and Nevis",]$name<-"Saint Kitts and Nevis"
+    #imf[imf$name=="St. Lucia",]$name<-"Saint Lucia"
+    #imf[imf$name=="St. Vincent and the Grenadines",]$name<-"Saint Vincent and the Grenadines"
+    #imf[imf$name=="Timor-Leste",]$name<-"East Timor"
+    #imf[imf$name=="United States",]$name<-"USA"
+    #imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
+    #imf[imf$name=="Virgin Islands (U.S.)",]$name<-"United States Virgin Islands"
+    #imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
+    
     inv_y<-filter(imf, Year==input$year)[c("name","IMF_cred")]
-      
+    
     # worldmap@data[worldmap@data$NAME_EN=="The Bahamas",]$NAME_EN<-"Bahamas"
     worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
-    worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
-    worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia"
-    worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia"
-    worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"USA"
+    #worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
+    #worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia"
+    #worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia"
+    #worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"USA"
     worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
     
     worldmap@data<-left_join(worldmap@data, inv_y, by=c("NAME_EN"="name"))
     worldmap
-      
-     
   }) #These end the eventReactive that makes dat_i
   
   pop_cont1<-reactive({
     f<-dat_c()@data$inv_tot
     f[is.na(f)]<-0
-    
-    paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
-                     "Investment from China (Million USD): $", f)
+    if(input$var=="Investment"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f)
+    }else if(input$var=="GDP Growth"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "GDP Growth: ", dat_c()@data$gdp_growth)
+    }else if(input$var=="Democracy Score"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "Democracy Score: ", dat_c()@data$dem_score)
+    }
   }) #end eventReactive defining pop_cont1
   
   pop_cont2<-reactive({
     f<-dat_i()@data$IMF_cred
     f[is.na(f)]<-0
     paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
-                     "IMF Investment (Million USD): $", round(f/1000000, 0))
+           "IMF Investment (Million USD): $", round(f/1000000, 0))
   })
   
   pal1<-reactive({
-    j<-colorNumeric(palette="Reds", domain=dat_c()@data$inv_tot)
-    j(dat_c()@data$inv_tot)
+    if(input$var=="Investment"){
+      j<-colorNumeric(palette="Reds", domain=dat_c()@data$inv_tot)
+      j(dat_c()@data$inv_tot)
+    }else if(input$var=="GDP Growth"){
+      j<-colorFactor(palette="BrBG", domain=dat_c()@data$growth_fac)
+      j(dat_c()@data$growth_fac)
+    }else if(input$var=="Democracy Score"){
+      j<-colorNumeric(palette="Reds", domain=dat_c()@data$dem_score)
+      j(dat_c()@data$dem_score)
+    }
   })
   
   pal2<-reactive({
@@ -147,7 +224,7 @@ server<-function(input, output){
         setView(lat=40, lng=0, zoom=1.4)%>%
         addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal1(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
-                    popup=pop_cont1(), label=dat_i()@data$SOVEREIGNT) %>%
+                    popup=pop_cont1(), label=dat_c()@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
     } else if(input$net==T){ #ends if(input$net==F)
       rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
@@ -273,7 +350,7 @@ server<-function(input, output){
         setView(lat=40, lng=0, zoom=1.4)%>%
         addPolygons(data=dat_i(), weight=.5, fillOpacity = .75, fillColor = pal2(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
-                                       popup=pop_cont2(), label=dat_i()@data$SOVEREIGNT) %>%
+                    popup=pop_cont2(), label=dat_i()@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
     }  else if(input$net==T){  #ends if(input$net==F)
       rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
@@ -282,39 +359,39 @@ server<-function(input, output){
       imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
       imf<-filter(imf, !country %in% unique(imf$country)[1:49])
       imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-      imf[imf$name=="Bahamas, The",]$name<-"The Bahamas"
-      imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
+      #imf[imf$name=="Bahamas, The",]$name<-"The Bahamas"
+      #imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
       #imf[imf$name=="China",]$name<-"People's Republic of China"
-      imf[imf$name=="Congo, Rep.",]$name<-"Republic of the Congo"
-      imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
-      imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
-      imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
-      imf[imf$name=="Gambia, The",]$name<-"Gambia"
-      imf[imf$name=="Hong Kong SAR, China",]$name<-"Hong Kong"
-      imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
-      imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
-      imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
-      imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
-      imf[imf$name=="Lao PDR",]$name<-"Laos"
-      imf[imf$name=="Russian Federation",]$name<-"Russia"
-      imf[imf$name=="Micronesia, Fed. Sts.",]$name<-"Micronesia"
-      imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
-      imf[imf$name=="Slovak Republic",]$name<-"Slovakia"
-      imf[imf$name=="Sint Maarten (Dutch part)",]$name<-"Sint Maarten"
-      imf[imf$name=="St. Martin (French part)",]$name<-"Saint Martin"
-      imf[imf$name=="St. Kitts and Nevis",]$name<-"Saint Kitts and Nevis"
-      imf[imf$name=="St. Lucia",]$name<-"Saint Lucia"
-      imf[imf$name=="St. Vincent and the Grenadines",]$name<-"Saint Vincent and the Grenadines"
-      imf[imf$name=="Timor-Leste",]$name<-"East Timor"
-      imf[imf$name=="United States",]$name<-"USA"
-      imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
-      imf[imf$name=="Virgin Islands (U.S.)",]$name<-"United States Virgin Islands"
-      imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
+      #imf[imf$name=="Congo, Rep.",]$name<-"Republic of the Congo"
+      #imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
+      #imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
+      #imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
+      #imf[imf$name=="Gambia, The",]$name<-"Gambia"
+      #imf[imf$name=="Hong Kong SAR, China",]$name<-"Hong Kong"
+      #imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
+      #imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
+      #imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
+      #imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
+      #imf[imf$name=="Lao PDR",]$name<-"Laos"
+      #imf[imf$name=="Russian Federation",]$name<-"Russia"
+      #imf[imf$name=="Micronesia, Fed. Sts.",]$name<-"Micronesia"
+      #imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
+      #imf[imf$name=="Slovak Republic",]$name<-"Slovakia"
+      #imf[imf$name=="Sint Maarten (Dutch part)",]$name<-"Sint Maarten"
+      #imf[imf$name=="St. Martin (French part)",]$name<-"Saint Martin"
+      #imf[imf$name=="St. Kitts and Nevis",]$name<-"Saint Kitts and Nevis"
+      #imf[imf$name=="St. Lucia",]$name<-"Saint Lucia"
+      # imf[imf$name=="St. Vincent and the Grenadines",]$name<-"Saint Vincent and the Grenadines"
+      # imf[imf$name=="Timor-Leste",]$name<-"East Timor"
+      # imf[imf$name=="United States",]$name<-"USA"
+      # imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
+      # imf[imf$name=="Virgin Islands (U.S.)",]$name<-"United States Virgin Islands"
+      # imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
       worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
-      worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
-      worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia"
-      worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia"
-      worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"USA"
+      #worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
+      #worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia"
+      #worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia"
+      #worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"USA"
       worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
       
       net_dat<-filter(imf, Year==min(imf$Year))[!duplicated(filter(imf, Year==min(imf$Year))$name), c("name","Year","IMF_cred")]
@@ -442,7 +519,7 @@ server<-function(input, output){
   output$leaf_c<-renderLeaflet(map_c())
   
   output$leaf_i<-renderLeaflet(map_i())
-
+  
 } #This one ends server
 
 shinyApp(ui, server)
