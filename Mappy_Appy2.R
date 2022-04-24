@@ -54,10 +54,12 @@ ui<-fluidPage(h1="Map Fun",
               sliderInput("year", label="Select Year", min=2005, max=2020, value=2015, sep=""),
               #radioButtons("which","Investment Source",choices=c("China","IMF")),
               selectInput("var","Select Variable to Map", choices=c("Investment", "GDP Growth", "Democracy Score")),
+              radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
               checkboxInput("net","Display Network"),
               #actionButton("button","Plot"),
-              leafletOutput("leaf_c"),
-              leafletOutput("leaf_i")
+              splitLayout(leafletOutput("leaf_c"), leafletOutput("leaf_i"))
+              # leafletOutput("leaf_c"),
+              # leafletOutput("leaf_i")
 )
 
 server<-function(input, output){
@@ -127,54 +129,47 @@ server<-function(input, output){
     }
     worldmap
 
-    }) # End eventReactive making dat_c
+    }) # End reactive making dat_c
   
   dat_i<-reactive({
     imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
     imf<-filter(imf, !country %in% unique(imf$country)[1:49])
     imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-    #imf[imf$name=="Bahamas, The",]$name<-"The Bahamas"
-    #imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
-    #imf[imf$name=="China",]$name<-"People's Republic of China"
-    #imf[imf$name=="Congo, Rep.",]$name<-"Republic of the Congo"
-    #imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
-    #imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
-    #imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
-    #imf[imf$name=="Gambia, The",]$name<-"Gambia"
-    #imf[imf$name=="Hong Kong SAR, China",]$name<-"Hong Kong"
-    #imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
-    #imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
-    #imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
-    #imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
-    #imf[imf$name=="Lao PDR",]$name<-"Laos"
-    #imf[imf$name=="Russian Federation",]$name<-"Russia"
-    #imf[imf$name=="Micronesia, Fed. Sts.",]$name<-"Micronesia"
-    #imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
-    #imf[imf$name=="Slovak Republic",]$name<-"Slovakia"
-    #imf[imf$name=="Sint Maarten (Dutch part)",]$name<-"Sint Maarten"
-    #imf[imf$name=="St. Martin (French part)",]$name<-"Saint Martin"
-    #imf[imf$name=="St. Kitts and Nevis",]$name<-"Saint Kitts and Nevis"
-    #imf[imf$name=="St. Lucia",]$name<-"Saint Lucia"
-    #imf[imf$name=="St. Vincent and the Grenadines",]$name<-"Saint Vincent and the Grenadines"
-    #imf[imf$name=="Timor-Leste",]$name<-"East Timor"
-    #imf[imf$name=="United States",]$name<-"USA"
-    #imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
-    #imf[imf$name=="Virgin Islands (U.S.)",]$name<-"United States Virgin Islands"
-    #imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
     
     inv_y<-filter(imf, Year==input$year)[c("name","IMF_cred")]
     
-    # worldmap@data[worldmap@data$NAME_EN=="The Bahamas",]$NAME_EN<-"Bahamas"
     worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
-    #worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
-    #worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia"
-    #worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia"
-    #worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"USA"
     worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
     
     worldmap@data<-left_join(worldmap@data, inv_y, by=c("NAME_EN"="name"))
+    
+    if(input$var=="GDP Growth"){
+      gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
+      gdp$NY.GDP.MKTP.KD.ZG<-round(gdp$NY.GDP.MKTP.KD.ZG,2)
+      gdp<-filter(gdp, !country %in% unique(gdp$country)[1:49])
+      gdp<-rename(gdp, Year=year, name=country, gdp_growth=`NY.GDP.MKTP.KD.ZG`)
+      gdp$growth_fac<-ifelse(-10>=gdp$gdp_growth,1, ifelse(gdp$gdp_growth<= -2.5 & gdp$gdp_growth>-10, 2, 
+                                                           ifelse(gdp$gdp_growth<= 0 & gdp$gdp_growth>-2.5, 3, 
+                                                                  ifelse(gdp$gdp_growth<= 2.5 & gdp$gdp_growth>0, 4, 
+                                                                         ifelse(gdp$gdp_growth<= 5 & gdp$gdp_growth>2.5, 5, 
+                                                                                ifelse(gdp$gdp_growth<= 10 & gdp$gdp_growth>5, 6, 
+                                                                                       ifelse(gdp$gdp_growth>10, 7, 0)))))))
+      
+      gdp_y<-filter(gdp, Year==input$year)
+      worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
+    } else if(input$var=="Democracy Score"){  #ends if(var=="GDP Growth)
+      library(vdemdata)
+      dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem")],year>2004)
+      dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
+      dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
+      dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
+      dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
+      
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
+      worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
+    } #ends if(var==Democracy)  
     worldmap
-  }) #These end the eventReactive that makes dat_i
+  }) #These end the reactive that makes dat_i
   
   pop_cont1<-reactive({
     f<-dat_c()@data$inv_tot
@@ -191,14 +186,24 @@ server<-function(input, output){
              "Investment from China (Million USD): $", f, "<br>",
              "Democracy Score: ", dat_c()@data$dem_score)
     }
-  }) #end eventReactive defining pop_cont1
+  }) #end reactive defining pop_cont1
   
   pop_cont2<-reactive({
     f<-dat_i()@data$IMF_cred
     f[is.na(f)]<-0
-    paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
-           "IMF Investment (Million USD): $", round(f/1000000, 0))
-  })
+    if(input$var=="Investment"){
+      paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
+             "IMF Investment (Million USD): $", round(f/1000000, 0))
+    }else if(input$var=="GDP Growth"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "GDP Growth: ", dat_c()@data$gdp_growth)
+    }else if(input$var=="Democracy Score"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "Democracy Score: ", dat_c()@data$dem_score)
+    }
+  }) # end reactive that makes pop_cont2
   
   pal1<-reactive({
     if(input$var=="Investment"){
@@ -211,17 +216,55 @@ server<-function(input, output){
       j<-colorNumeric(palette="Reds", domain=dat_c()@data$dem_score)
       j(dat_c()@data$dem_score)
     }
-  })
+  }) #end making pal1
   
   pal2<-reactive({
-    j<-colorNumeric(palette="Blues", domain=dat_i()@data$IMF_cred)
-    j(dat_i()@data$IMF_cred)
+    if(input$var=="Investment"){
+      j<-colorNumeric(palette="Blues", domain=dat_i()@data$IMF_cred)
+      j(dat_i()@data$IMF_cred)
+    }else if(input$var=="GDP Growth"){
+      j<-colorFactor(palette="BrBG", domain=dat_c()@data$growth_fac)
+      j(dat_c()@data$growth_fac)
+    }else if(input$var=="Democracy Score"){
+      j<-colorNumeric(palette="Reds", domain=dat_c()@data$dem_score)
+      j(dat_c()@data$dem_score)
+    }
+  }) #finish making pal2
+  
+  lat_re<-reactive({
+    if(input$view=="World"){40}
+    else if(input$view=="Africa"){5}
+    else if(input$view=="Asia"){40}
+    else if(input$view=="Australiasia"){-25}
+    else if(input$view=="Europe"){50}
+    else if(input$view=="North America"){45}
+    else if(input$view=="South America"){-15}
+  })
+  
+  lng_re<-reactive({
+    if(input$view=="World"){0}
+    else if(input$view=="Africa"){25}
+    else if(input$view=="Asia"){90}
+    else if(input$view=="Australiasia"){135}
+    else if(input$view=="Europe"){15}
+    else if(input$view=="North America"){-100}
+    else if(input$view=="South America"){-65}
+  })
+  
+  zoom_re<-reactive({
+    if(input$view=="World"){1.4}
+    else if(input$view=="Africa"){2.5}
+    else if(input$view=="Asia"){2.5}
+    else if(input$view=="Australiasia"){3}
+    else if(input$view=="Europe"){4}
+    else if(input$view=="North America"){2.5}
+    else if(input$view=="South America"){2.5}
   })
   
   map_c<-reactive({
     if(input$net==F){
       leaflet() %>%
-        setView(lat=40, lng=0, zoom=1.4)%>%
+        setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal1(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
                     popup=pop_cont1(), label=dat_c()@data$SOVEREIGNT) %>%
@@ -267,18 +310,13 @@ server<-function(input, output){
       
       coordinates(verts_)<-~lon+lat
       
-      #edges_<-network_$edges
       edges_1<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .2))
       edges_2<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .4) & network_$edges[,3]>quantile(network_$edges[,3], .2))
       edges_3<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .6) & network_$edges[,3]>quantile(network_$edges[,3], .4))
       edges_4<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .8) & network_$edges[,3]>quantile(network_$edges[,3], .6))
       edges_5<-filter(network_$edges, network_$edges[,3]>quantile(network_$edges[,3], .8))
       
-      # edges_<-lapply(1:nrow(edges_),function(i){
-      #   as(rbind(verts_[verts_$name==edges_[i, "from"],],
-      #            verts_[verts_$name==edges_[i, "to"],]),
-      #      "SpatialLines")
-      # })
+
       edges_1<-lapply(1:nrow(edges_1),function(i){
         as(rbind(verts_[verts_$name==edges_1[i, "from"],],
                  verts_[verts_$name==edges_1[i, "to"],]),
@@ -305,9 +343,7 @@ server<-function(input, output){
            "SpatialLines")
       })
       
-      # for(i in seq_along(edges)){
-      #   edges_[[i]]<-spChFIDs(edges_[[i]], as.character(i))
-      # }
+
       for(i in seq_along(edges)){
         edges_1[[i]]<-spChFIDs(edges_1[[i]], as.character(i))
       }
@@ -323,7 +359,6 @@ server<-function(input, output){
       for(i in seq_along(edges)){
         edges_5[[i]]<-spChFIDs(edges_5[[i]], as.character(i))
       }
-      #edges_<-do.call(rbind, edges_)
       edges_1<-do.call(rbind, edges_1)
       edges_2<-do.call(rbind, edges_2)
       edges_3<-do.call(rbind, edges_3)
@@ -331,7 +366,7 @@ server<-function(input, output){
       edges_5<-do.call(rbind, edges_5)
       
       leaflet()%>%
-        setView(lat=40, lng=0, zoom=1.4)%>%
+        setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(),weight=.5, color=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
@@ -347,7 +382,7 @@ server<-function(input, output){
   map_i<-reactive({
     if(input$net==F){
       leaflet() %>%
-        setView(lat=40, lng=0, zoom=1.4)%>%
+        setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(), weight=.5, fillOpacity = .75, fillColor = pal2(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
                     popup=pop_cont2(), label=dat_i()@data$SOVEREIGNT) %>%
@@ -359,39 +394,8 @@ server<-function(input, output){
       imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
       imf<-filter(imf, !country %in% unique(imf$country)[1:49])
       imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-      #imf[imf$name=="Bahamas, The",]$name<-"The Bahamas"
-      #imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
-      #imf[imf$name=="China",]$name<-"People's Republic of China"
-      #imf[imf$name=="Congo, Rep.",]$name<-"Republic of the Congo"
-      #imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
-      #imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
-      #imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
-      #imf[imf$name=="Gambia, The",]$name<-"Gambia"
-      #imf[imf$name=="Hong Kong SAR, China",]$name<-"Hong Kong"
-      #imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
-      #imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
-      #imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
-      #imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
-      #imf[imf$name=="Lao PDR",]$name<-"Laos"
-      #imf[imf$name=="Russian Federation",]$name<-"Russia"
-      #imf[imf$name=="Micronesia, Fed. Sts.",]$name<-"Micronesia"
-      #imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
-      #imf[imf$name=="Slovak Republic",]$name<-"Slovakia"
-      #imf[imf$name=="Sint Maarten (Dutch part)",]$name<-"Sint Maarten"
-      #imf[imf$name=="St. Martin (French part)",]$name<-"Saint Martin"
-      #imf[imf$name=="St. Kitts and Nevis",]$name<-"Saint Kitts and Nevis"
-      #imf[imf$name=="St. Lucia",]$name<-"Saint Lucia"
-      # imf[imf$name=="St. Vincent and the Grenadines",]$name<-"Saint Vincent and the Grenadines"
-      # imf[imf$name=="Timor-Leste",]$name<-"East Timor"
-      # imf[imf$name=="United States",]$name<-"USA"
-      # imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
-      # imf[imf$name=="Virgin Islands (U.S.)",]$name<-"United States Virgin Islands"
-      # imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
+      
       worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
-      #worldmap@data[worldmap@data$NAME_EN=="People's Republic of China",]$NAME_EN<-"China"
-      #worldmap@data[worldmap@data$NAME_EN=="The Gambia",]$NAME_EN<-"Gambia"
-      #worldmap@data[worldmap@data$NAME_EN=="Federated States of Micronesia",]$NAME_EN<-"Micronesia"
-      #worldmap@data[worldmap@data$NAME_EN=="United States of America",]$NAME_EN<-"USA"
       worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
       
       net_dat<-filter(imf, Year==min(imf$Year))[!duplicated(filter(imf, Year==min(imf$Year))$name), c("name","Year","IMF_cred")]
@@ -405,22 +409,41 @@ server<-function(input, output){
       nodes<-rename(rawnodes[c("ID","lon","lat")],name=ID)
       net_dat$Target<-stringr::str_to_lower(net_dat$Target)
       nodes<-rbind(nodes, c("imf", round(-77.04425201622206,6), round(38.89908346600995,6)))
-      nodes<-rbind(nodes, c("American Samoa", round(-170.5794322853497,6), round(-14.26012915103479,6)))
+      nodes<-rbind(nodes, c("american samoa", round(-170.5794322853497,6), round(-14.26012915103479,6)))
       nodes<-rbind(nodes, c("comoros", round(43.48504853332502,6),round(-11.862176383838756,6)))
-      nodes<-rbind(nodes,c("republic of the congo", round(16.052629791985225,6), round(-0.07691295959726356,6)))
-      nodes<-rbind(nodes,c("democratic republic of the congo", round(23.84214068136281,6), round(-3.2141630381290125,6)))
-      nodes<-rbind(nodes,c("ivory coast", round(-5.529500409752393,6),round(7.253827157140813,6)))
+      nodes<-rbind(nodes,c("congo, rep.", round(16.052629791985225,6), round(-0.07691295959726356,6)))
+      nodes<-rbind(nodes,c("congo, dem. rep.", round(23.84214068136281,6), round(-3.2141630381290125,6)))
+      nodes<-rbind(nodes,c("cote d'ivoire", round(-5.529500409752393,6),round(7.253827157140813,6)))
       nodes<-rbind(nodes,c("eswatini", round(31.526906430335316,6), round(-26.50532674658614, 6)))
       nodes<-rbind(nodes,c("guinea-bissau", round(-15.11433094944025,6),round(11.849168222767416,6)))
       nodes<-rbind(nodes, c("sao tome and principe", round(6.637044051405797,6), round(0.3877357338129725, 6)))
-      nodes<-rbind(nodes, c("saint lucia", round(-60.981555430152405,6), round(13.890030848573293,6)))
-      nodes<-rbind(nodes, c("saint vincent and the grenadines", round(-61.25999737205744,6), round(12.990774451382883,6)))
+      nodes<-rbind(nodes, c("st. lucia", round(-60.981555430152405,6), round(13.890030848573293,6)))
+      nodes<-rbind(nodes, c("st. vincent and the grenadines", round(-61.25999737205744,6), round(12.990774451382883,6)))
+      nodes<-rbind(nodes, c("timor-leste", round(126.04154797375384,6), round(-8.779762146492265,6)))
+      nodes<-rbind(nodes, c("st. kitts and nevis", round(-62.65150902029912, 6), round(17.2450959410363,6)))
       
       nodes[nodes$name=="uk",]$name<-"united kingdom"
       nodes[nodes$name=="uae",]$name<-"united arab emirates"
       nodes[nodes$name=="brunei",]$name<-"brunei darussalam"
       nodes[nodes$name=="macedonia",]$name<-"north macedonia"
       nodes[nodes$name=="burma",]$name<-"myanmar"
+      nodes[nodes$name=="bahamas",]$name<-"bahamas, the"
+      nodes[nodes$name=="cape verde",]$name<-"cabo verde"
+      nodes[nodes$name=="egypt",]$name<-"egypt, arab rep."
+      nodes[nodes$name=="hong kong",]$name<-"hong kong sar, china"
+      nodes[nodes$name=="north korea",]$name<-"korea, dem. people's rep."
+      nodes[nodes$name=="south korea",]$name<-"korea, rep."
+      nodes[nodes$name=="kyrgyzstan",]$name<-"kyrgyz republic"
+      nodes[nodes$name=="laos",]$name<-"lao pdr"
+      nodes[nodes$name=="gambia",]$name<-"gambia, the"
+      nodes[nodes$name=="micronesia",]$name<-"micronesia, fed. sts."
+      nodes[nodes$name=="russia",]$name<-"russian federation"
+      nodes[nodes$name=="syria",]$name<-"syrian arab republic"
+      nodes[nodes$name=="venezuela",]$name<-"venezuela, rb"
+      nodes[nodes$name=="yemen",]$name<-"yemen, rep."
+      nodes[nodes$name=="usa",]$name<-"united states"
+      nodes[nodes$name=="iran",]$name<-"iran, islamic rep."
+      nodes[nodes$name=="slovakia",]$name<-"slovak republic"
       
       nodes<-filter(nodes, name %in% c(filter(net_dat, Year==input$year & !is.na(IMF_cred))$Target,"imf"))
       
@@ -429,7 +452,9 @@ server<-function(input, output){
       
       h<-dplyr::rename(filter(net_dat,Year==input$year & !is.na(IMF_cred))[c("Source", "Target", "IMF_cred")], FROM=Source, TO=Target)
       
-      u<-nodes[c(4,3,2)]
+      u<-nodes[c("name", "lat","lon")]
+      u[u$name=="maldives",]$lat<-(4.222821)
+      u[u$name=="maldives",]$lon<-73.153334
       network_<-get.data.frame(graph.data.frame(h, directed=T, vertices=u), "both")
       verts_<-network_$vertices
       verts_$lat<-as.numeric(verts_$lat)
@@ -437,18 +462,12 @@ server<-function(input, output){
       
       coordinates(verts_)<-~lon+lat
       
-      # edges_<-network_$edges
       edges_1<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .2))
       edges_2<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .4) & network_$edges[,3]>quantile(network_$edges[,3], .2))
       edges_3<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .6) & network_$edges[,3]>quantile(network_$edges[,3], .4))
       edges_4<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .8) & network_$edges[,3]>quantile(network_$edges[,3], .6))
       edges_5<-filter(network_$edges, network_$edges[,3]>quantile(network_$edges[,3], .8))
-      
-      # edges_<-lapply(1:nrow(edges_),function(i){
-      #   as(rbind(verts_[verts_$name==edges_[i, "from"],],
-      #            verts_[verts_$name==edges_[i, "to"],]),
-      #      "SpatialLines")
-      # })
+
       edges_1<-lapply(1:nrow(edges_1),function(i){
         as(rbind(verts_[verts_$name==edges_1[i, "from"],],
                  verts_[verts_$name==edges_1[i, "to"],]),
@@ -475,9 +494,6 @@ server<-function(input, output){
            "SpatialLines")
       })
       
-      # for(i in seq_along(edges)){
-      #   edges_[[i]]<-spChFIDs(edges_[[i]], as.character(i))
-      # }
       for(i in seq_along(edges)){
         edges_1[[i]]<-spChFIDs(edges_1[[i]], as.character(i))
       }
@@ -494,7 +510,6 @@ server<-function(input, output){
         edges_5[[i]]<-spChFIDs(edges_5[[i]], as.character(i))
       }
       
-      #edges_<-do.call(rbind, edges_)
       edges_1<-do.call(rbind, edges_1)
       edges_2<-do.call(rbind, edges_2)
       edges_3<-do.call(rbind, edges_3)
@@ -502,7 +517,7 @@ server<-function(input, output){
       edges_5<-do.call(rbind, edges_5)
       
       leaflet()%>%
-        setView(lat=40, lng=0, zoom=1.4)%>%
+        setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(),weight=.5, color=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
