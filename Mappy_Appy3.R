@@ -55,7 +55,7 @@ ui<-fluidPage(h1="Map Fun",
               #radioButtons("which","Investment Source",choices=c("China","IMF")),
               selectInput("var","Select Variable to Map", choices=c("Investment", "GDP Growth", "Democracy Score")),
               radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
-              checkboxInput("net","Display Network"),
+              #checkboxInput("net","Display Network"),
               #actionButton("button","Plot"),
               splitLayout(leafletOutput("leaf_c"), leafletOutput("leaf_i"))
               # leafletOutput("leaf_c"),
@@ -76,7 +76,7 @@ server<-function(input, output){
       group_by(Year, Country) %>%
       mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
     chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
-      
+    
     chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
     chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
     chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
@@ -87,7 +87,7 @@ server<-function(input, output){
     inv_y<-filter(chn_inv, Year==input$year)
     inv_y<-inv_y[!duplicated(inv_y$Country),c("Country","inv_tot")]
     inv_y$inv_tot<-as.numeric(inv_y$inv_tot)
-      
+    
     worldmap@data$sov_low<-stringr::str_to_lower(worldmap@data$SOVEREIGNT)
     worldmap@data[worldmap@data$sov_low=="the bahamas",]$sov_low<-"bahamas"
     worldmap@data[worldmap@data$sov_low=="united kingdom",]$sov_low<-"uk"
@@ -123,13 +123,17 @@ server<-function(input, output){
       dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
       dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
       dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
+      dem$dem_fac<-ifelse(dem$v2x_libdem<=.1, 1, ifelse(dem$v2x_libdem<=.25 & dem$v2x_libdem>.1, 2,
+                                                        ifelse(dem$v2x_libdem<=.5 & dem$v2x_libdem>.25, 3,
+                                                               ifelse(dem$v2x_libdem<=.7 & dem$v2x_libdem>.5, 4, 
+                                                                      ifelse(dem$v2x_libdem<=.9 & dem$v2x_libdem>.7, 5, 0)))))
       
       dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
     }
     worldmap
-
-    }) # End reactive making dat_c
+    
+  }) # End reactive making dat_c
   
   dat_i<-reactive({
     imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
@@ -164,6 +168,10 @@ server<-function(input, output){
       dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
       dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
       dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
+      dem$dem_fac<-ifelse(dem$v2x_libdem<=.1, 1, ifelse(dem$v2x_libdem<=.25 & dem$v2x_libdem>.1, 2,
+                                                        ifelse(dem$v2x_libdem<=.5 & dem$v2x_libdem>.25, 3,
+                                                               ifelse(dem$v2x_libdem<=.7 & dem$v2x_libdem>.5, 4, 
+                                                                      ifelse(dem$v2x_libdem<=.9 & dem$v2x_libdem>.7, 5, 0)))))
       
       dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
@@ -213,8 +221,8 @@ server<-function(input, output){
       j<-colorFactor(palette="BrBG", domain=dat_c()@data$growth_fac)
       j(dat_c()@data$growth_fac)
     }else if(input$var=="Democracy Score"){
-      j<-colorNumeric(palette="Reds", domain=dat_c()@data$dem_score)
-      j(dat_c()@data$dem_score)
+      j<-colorFactor(palette="BrBG", domain=dat_c()@data$dem_fac)
+      j(dat_c()@data$dem_fac)
     }
   }) #end making pal1
   
@@ -223,11 +231,11 @@ server<-function(input, output){
       j<-colorNumeric(palette="Blues", domain=dat_i()@data$IMF_cred)
       j(dat_i()@data$IMF_cred)
     }else if(input$var=="GDP Growth"){
-      j<-colorFactor(palette="BrBG", domain=dat_c()@data$growth_fac)
+      j<-colorFactor(palette="BrBG", domain=dat_i()@data$growth_fac)
       j(dat_c()@data$growth_fac)
     }else if(input$var=="Democracy Score"){
-      j<-colorNumeric(palette="Reds", domain=dat_c()@data$dem_score)
-      j(dat_c()@data$dem_score)
+      j<-colorFactor(palette="BrBG", domain=dat_i()@data$dem_fac)
+      j(dat_c()@data$dem_fac)
     }
   }) #finish making pal2
   
@@ -262,14 +270,15 @@ server<-function(input, output){
   })
   
   map_c<-reactive({
-    if(input$net==F){
+    if(input$var=="Investment"){
       leaflet() %>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal1(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
                     popup=pop_cont1(), label=dat_c()@data$SOVEREIGNT) %>%
+        #leaflet::addLegend(pal=pal1(), values = dat_c()@data$inv_tot)
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
-    } else if(input$net==T){ #ends if(input$net==F)
+    } else { #ends if(input$net==F)
       rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
       rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
       
@@ -308,87 +317,28 @@ server<-function(input, output){
       network_<-get.data.frame(graph.data.frame(filter(h, !TO%in%setdiff(h$TO, u$name)), directed=T, vertices=u), "both")
       verts_<-network_$vertices
       
-      coordinates(verts_)<-~lon+lat
       verts_<-left_join(verts_, h[c("TO", "inv_tot")], by=c("name"="TO"))
       
-      edges_1<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .2))
-      edges_2<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .4) & network_$edges[,3]>quantile(network_$edges[,3], .2))
-      edges_3<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .6) & network_$edges[,3]>quantile(network_$edges[,3], .4))
-      edges_4<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .8) & network_$edges[,3]>quantile(network_$edges[,3], .6))
-      edges_5<-filter(network_$edges, network_$edges[,3]>quantile(network_$edges[,3], .8))
-       
-       
-      edges_1<-lapply(1:nrow(edges_1),function(i){
-       as(rbind(verts_[verts_$name==edges_1[i, "from"],],
-                verts_[verts_$name==edges_1[i, "to"],]),
-          "SpatialLines")
-      })
-      edges_2<-lapply(1:nrow(edges_2),function(i){
-       as(rbind(verts_[verts_$name==edges_2[i, "from"],],
-                verts_[verts_$name==edges_2[i, "to"],]),
-          "SpatialLines")
-      })
-      edges_3<-lapply(1:nrow(edges_3),function(i){
-       as(rbind(verts_[verts_$name==edges_3[i, "from"],],
-                verts_[verts_$name==edges_3[i, "to"],]),
-          "SpatialLines")
-      })
-      edges_4<-lapply(1:nrow(edges_4),function(i){
-       as(rbind(verts_[verts_$name==edges_4[i, "from"],],
-                verts_[verts_$name==edges_4[i, "to"],]),
-          "SpatialLines")
-      })
-      edges_5<-lapply(1:nrow(edges_5),function(i){
-       as(rbind(verts_[verts_$name==edges_5[i, "from"],],
-                verts_[verts_$name==edges_5[i, "to"],]),
-          "SpatialLines")
-      })
-       
-       
-      for(i in seq_along(edges)){
-       edges_1[[i]]<-spChFIDs(edges_1[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-       edges_2[[i]]<-spChFIDs(edges_2[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-       edges_3[[i]]<-spChFIDs(edges_3[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-       edges_4[[i]]<-spChFIDs(edges_4[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-       edges_5[[i]]<-spChFIDs(edges_5[[i]], as.character(i))
-      }
-      edges_1<-do.call(rbind, edges_1)
-      edges_2<-do.call(rbind, edges_2)
-      edges_3<-do.call(rbind, edges_3)
-      edges_4<-do.call(rbind, edges_4)
-      edges_5<-do.call(rbind, edges_5)
-       
       leaflet()%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(),weight=.5, color=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
+        #addLegend(pal=pal1(), values=dat_c()@data$growth_fac) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
-        addCircles(data=verts_, opacity=.2, fillColor = "red", color="red") %>%
-        addPolylines(data=edges_1, color="#EEAECA", opacity=.01, weight=.5)%>%
-        addPolylines(data=edges_2, color="#E095A6", opacity=.03, weight=1)%>%
-        addPolylines(data=edges_3, color="#D5828A", opacity = .05, weight=1.5) %>%
-        addPolylines(data=edges_4, color="#C76966", opacity = .07, weight=2.5) %>%
-        addPolylines(data=edges_5, color="#AA381E", opacity=.1, weight=5)
+        addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
+
     } #ends if(net==T)
   }) #these end the reactive that makes map_c
   
   map_i<-reactive({
-    if(input$net==F){
+    if(input$var=="Investment"){
       leaflet() %>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(), weight=.5, fillOpacity = .75, fillColor = pal2(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
                     popup=pop_cont2(), label=dat_i()@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
-    }  else if(input$net==T){  #ends if(input$net==F)
+    }  else{  #ends if(input$net==F)
       rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
       rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
       
@@ -460,74 +410,14 @@ server<-function(input, output){
       verts_<-network_$vertices
       verts_$lat<-as.numeric(verts_$lat)
       verts_$lon<-as.numeric(verts_$lon)
-      
-      coordinates(verts_)<-~lon+lat
-      
-      edges_1<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .2))
-      edges_2<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .4) & network_$edges[,3]>quantile(network_$edges[,3], .2))
-      edges_3<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .6) & network_$edges[,3]>quantile(network_$edges[,3], .4))
-      edges_4<-filter(network_$edges, network_$edges[,3]<=quantile(network_$edges[,3], .8) & network_$edges[,3]>quantile(network_$edges[,3], .6))
-      edges_5<-filter(network_$edges, network_$edges[,3]>quantile(network_$edges[,3], .8))
-
-      edges_1<-lapply(1:nrow(edges_1),function(i){
-        as(rbind(verts_[verts_$name==edges_1[i, "from"],],
-                 verts_[verts_$name==edges_1[i, "to"],]),
-           "SpatialLines")
-      })
-      edges_2<-lapply(1:nrow(edges_2),function(i){
-        as(rbind(verts_[verts_$name==edges_2[i, "from"],],
-                 verts_[verts_$name==edges_2[i, "to"],]),
-           "SpatialLines")
-      })
-      edges_3<-lapply(1:nrow(edges_3),function(i){
-        as(rbind(verts_[verts_$name==edges_3[i, "from"],],
-                 verts_[verts_$name==edges_3[i, "to"],]),
-           "SpatialLines")
-      })
-      edges_4<-lapply(1:nrow(edges_4),function(i){
-        as(rbind(verts_[verts_$name==edges_4[i, "from"],],
-                 verts_[verts_$name==edges_4[i, "to"],]),
-           "SpatialLines")
-      })
-      edges_5<-lapply(1:nrow(edges_5),function(i){
-        as(rbind(verts_[verts_$name==edges_5[i, "from"],],
-                 verts_[verts_$name==edges_5[i, "to"],]),
-           "SpatialLines")
-      })
-      
-      for(i in seq_along(edges)){
-        edges_1[[i]]<-spChFIDs(edges_1[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-        edges_2[[i]]<-spChFIDs(edges_2[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-        edges_3[[i]]<-spChFIDs(edges_3[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-        edges_4[[i]]<-spChFIDs(edges_4[[i]], as.character(i))
-      }
-      for(i in seq_along(edges)){
-        edges_5[[i]]<-spChFIDs(edges_5[[i]], as.character(i))
-      }
-      
-      edges_1<-do.call(rbind, edges_1)
-      edges_2<-do.call(rbind, edges_2)
-      edges_3<-do.call(rbind, edges_3)
-      edges_4<-do.call(rbind, edges_4)
-      edges_5<-do.call(rbind, edges_5)
+      verts_<-left_join(verts_, h[c("TO","IMF_cred")], by=c("name"="TO"))
       
       leaflet()%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(),weight=.5, color=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
-        addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue") %>%
-        addPolylines(data=edges_1, color="#D6E5FF", opacity=.01, weight=.5)%>%
-        addPolylines(data=edges_2, color="#B5C9EC", opacity=.03, weight=1)%>%
-        addPolylines(data=edges_3, color="#8BA6D5", opacity = .05, weight=1.5) %>%
-        addPolylines(data=edges_4, color="#708FC6", opacity = .07, weight=2.5) %>%
-        addPolylines(data=edges_5, color="#05358B", opacity=.1, weight=5)
+        addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
       
     } #end if(input==T)
   }) #these end the reactive that makes map_i
