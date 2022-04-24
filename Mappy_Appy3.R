@@ -53,7 +53,7 @@ worldmap@data[worldmap@data$NAME_EN=="United States Virgin Islands",]$NAME_EN<-"
 ui<-fluidPage(h1="Map Fun",
               sliderInput("year", label="Select Year", min=2005, max=2020, value=2015, sep=""),
               #radioButtons("which","Investment Source",choices=c("China","IMF")),
-              selectInput("var","Select Variable to Map", choices=c("Investment", "GDP Growth", "Democracy Score")),
+              selectInput("var","Select Variable to Map", choices=c("Investment", "GDP Growth", "Gini", "Undernourishment Prevelance" ,"Democracy Score")),
               radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
               #checkboxInput("net","Display Network"),
               #actionButton("button","Plot"),
@@ -130,6 +130,23 @@ server<-function(input, output){
       
       dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
+    }else if(input$var=="Gini"){
+      gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
+      gini<-filter(gini, !country %in% unique(gini$country)[1:49])
+      gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
+      gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
+                                                     ifelse(gini$gini>35 & gini$gini<=40, 3,
+                                                            ifelse(gini$gini>40 & gini$gini<=50, 4, 
+                                                                   ifelse(gini$gini>50, 5, 0)))))
+      gini_y<-filter(gini, Year==input$year)
+      worldmap@data<-left_join(worldmap@data, gini_y, by=c("NAME_EN"="name"))
+    }else if(input$var=="Undernourishment Prevelance"){
+      n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
+      n<-filter(n, !country %in% unique(n$country)[1:49])
+      n<-rename(n, Year=year, name=country, undernourishment=`SN.ITK.DEFC.ZS`)
+      
+      nourish_y<-filter(n, Year==input$year)
+      worldmap@data<-left_join(worldmap@data, nourish_y, by=c("NAME_EN"="name"))
     }
     worldmap
     
@@ -175,7 +192,24 @@ server<-function(input, output){
       
       dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
-    } #ends if(var==Democracy)  
+    } else if(input$var=="Gini"){
+      gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
+      gini<-filter(gini, !country %in% unique(gini$country)[1:49])
+      gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
+      gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
+                                                     ifelse(gini$gini>35 & gini$gini<=40, 3,
+                                                            ifelse(gini$gini>40 & gini$gini<=50, 4, 
+                                                                   ifelse(gini$gini>50, 5, 0)))))
+      gini_y<-filter(gini, Year==input$year)
+      worldmap@data<-left_join(worldmap@data, gini_y, by=c("NAME_EN"="name"))
+    }else if(input$var=="Undernourishment Prevelance"){
+      n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
+      n<-filter(n, !country %in% unique(n$country)[1:49])
+      n<-rename(n, Year=year, name=country, undernourishment=`SN.ITK.DEFC.ZS`)
+      
+      nourish_y<-filter(n, Year==input$year)
+      worldmap@data<-left_join(worldmap@data, nourish_y, by=c("NAME_EN"="name"))
+    }
     worldmap
   }) #These end the reactive that makes dat_i
   
@@ -193,6 +227,14 @@ server<-function(input, output){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from China (Million USD): $", f, "<br>",
              "Democracy Score: ", dat_c()@data$dem_score)
+    }else if(input$var=="Gini"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "Gini Coefficient: ", dat_c()@data$gini)
+    }else if(input$var=="Undernourishment Prevelance"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "Undernourishment Rate: ", dat_c()@data$undernourishment)
     }
   }) #end reactive defining pop_cont1
   
@@ -203,13 +245,21 @@ server<-function(input, output){
       paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
              "IMF Investment (Million USD): $", round(f/1000000, 0))
     }else if(input$var=="GDP Growth"){
-      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
-             "Investment from China (Million USD): $", f, "<br>",
+      paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
+             "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
              "GDP Growth: ", dat_c()@data$gdp_growth)
     }else if(input$var=="Democracy Score"){
-      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
-             "Investment from China (Million USD): $", f, "<br>",
+      paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
+             "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
              "Democracy Score: ", dat_c()@data$dem_score)
+    }else if(input$var=="Gini"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
+             "Gini Coefficient: ", dat_i()@data$gini)
+    }else if(input$var=="Undernourishment Prevelance"){
+      paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
+             "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
+             "Undernourishment Rate: ", dat_i()@data$undernourishment)
     }
   }) # end reactive that makes pop_cont2
   
@@ -223,6 +273,12 @@ server<-function(input, output){
     }else if(input$var=="Democracy Score"){
       j<-colorFactor(palette="BrBG", domain=dat_c()@data$dem_fac)
       j(dat_c()@data$dem_fac)
+    }else if(input$var=="Gini"){
+      j<-colorFactor(palette="BrBG", domain=dat_c()@data$gini_fac)
+      j(dat_c()@data$gini_fac)
+    }else if(input$var=="Undernourishment Prevelance"){
+      j<-colorNumeric(palette="Reds", domain=dat_c()@data$undernourishment)
+      j(dat_c()@data$undernourishment)
     }
   }) #end making pal1
   
@@ -232,10 +288,16 @@ server<-function(input, output){
       j(dat_i()@data$IMF_cred)
     }else if(input$var=="GDP Growth"){
       j<-colorFactor(palette="BrBG", domain=dat_i()@data$growth_fac)
-      j(dat_c()@data$growth_fac)
+      j(dat_i()@data$growth_fac)
     }else if(input$var=="Democracy Score"){
       j<-colorFactor(palette="BrBG", domain=dat_i()@data$dem_fac)
-      j(dat_c()@data$dem_fac)
+      j(dat_i()@data$dem_fac)
+    }else if(input$var=="Gini"){
+      j<-colorFactor(palette="BrBG", domain=dat_i()@data$gini_fac)
+      j(dat_i()@data$gini_fac)
+    }else if(input$var=="Undernourishment Prevelance"){
+      j<-colorNumeric(palette="Reds", domain=dat_i()@data$undernourishment)
+      j(dat_i()@data$undernourishment)
     }
   }) #finish making pal2
   
