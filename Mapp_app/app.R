@@ -2,14 +2,40 @@ suppressPackageStartupMessages(library(shiny))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(rgdal))
 suppressPackageStartupMessages(library(WDI))
-library(leaflet)
+suppressPackageStartupMessages(library(leaflet))
 suppressPackageStartupMessages(library(bslib))
+suppressPackageStartupMessages(library(leaflet))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(ggthemes))
+suppressPackageStartupMessages(library(network))
+suppressPackageStartupMessages(library(maps))
+suppressPackageStartupMessages(library(igraph))
 
+chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
+chn_inv<-chn_inv %>%
+  group_by(Year, Country) %>%
+  mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
+chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
+
+chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
+chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
+chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
+chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
+chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
+chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
 
 worldmap = readOGR(dsn="Nat_world_map", layer="ne_50m_admin_0_countries")
 
 rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
 rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
+
+library(vdemdata)
+dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem", "v2x_freexp")],year>2004)
+
+gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
+gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
+n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
+imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
 
 worldmap@data[worldmap@data$NAME=="United States of America",]$NAME<-"United States"
 worldmap@data[worldmap@data$NAME=="Congo",]$NAME<-"Rep. of Congo"
@@ -74,38 +100,36 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                         fluidPage(
                           tags$h1("Human Rights Indicators"),
                           sliderInput("year_h", label="Select Year", min=2005, max=2020, value=2015, sep=""),
-                          selectInput("var_h","Select Variable to Map", choices=c("Undernourishment Prevelance" ,"Democracy Score")),
+                          selectInput("var_h","Select Variable to Map", choices=c("Undernourishment Prevelance" ,"Democracy Score", "Freedom of Expression")),
                           radioButtons("view_h", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c2"), leafletOutput("leaf_i2"))
                         ))
 )
 
 server<-function(input, output, session){
-  suppressPackageStartupMessages(library(leaflet))
-  suppressPackageStartupMessages(library(ggplot2))
-  suppressPackageStartupMessages(library(ggthemes))
-  suppressPackageStartupMessages(library(network))
-  suppressPackageStartupMessages(library(maps))
-  suppressPackageStartupMessages(library(igraph))
   
   observe({
     val<-input$year_h
     updateSliderInput(session, "year", value=val)
   })
+  observe({
+    val<-input$view_h
+    updateSliderInput(session, "view", value=val)
+  })
   
   dat_c<-reactive({
-    chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
-    chn_inv<-chn_inv %>%
-      group_by(Year, Country) %>%
-      mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
-    chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
-    
-    chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
-    chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
-    chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
-    chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
-    chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
-    chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
+    #chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
+    # chn_inv<-chn_inv %>%
+    #   group_by(Year, Country) %>%
+    #   mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
+    # chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
+    # 
+    # chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
+    # chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
+    # chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
+    # chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
+    # chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
+    # chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
     
     inv_y<-filter(chn_inv, Year==input$year)
     inv_y<-inv_y[!duplicated(inv_y$Country),c("Country","inv_tot")]
@@ -123,7 +147,6 @@ server<-function(input, output, session){
     worldmap@data<-left_join(worldmap@data, inv_y, by=c("sov_low"="Country"))
     
     if(input$var_e=="GDP Growth"){
-      gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
       gdp$NY.GDP.MKTP.KD.ZG<-round(gdp$NY.GDP.MKTP.KD.ZG,2)
       gdp<-filter(gdp, !country %in% unique(gdp$country)[1:49])
       gdp<-rename(gdp, Year=year, name=country, gdp_growth=`NY.GDP.MKTP.KD.ZG`)
@@ -140,7 +163,6 @@ server<-function(input, output, session){
       gdp_y<-filter(gdp, Year==input$year)
       worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
     }else if(input$var_e=="Gini"){
-      gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
       gini<-filter(gini, !country %in% unique(gini$country)[1:49])
       gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
       gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
@@ -152,8 +174,6 @@ server<-function(input, output, session){
     }
     
     if(input$var_h=="Democracy Score"){
-     library(vdemdata)
-     dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem")],year>2004)
      dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
      dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
      dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
@@ -167,7 +187,6 @@ server<-function(input, output, session){
     worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
    
     }else if(input$var_h=="Undernourishment Prevelance"){
-      n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
       n<-filter(n, !country %in% unique(n$country)[1:49])
       n<-rename(n, Year=year, name=country, undernourishment=`SN.ITK.DEFC.ZS`)
       n$nourish_fac<-ifelse(n$undernourishment<=3.5, 1, ifelse(n$undernourishment>3.5 & n$undernourishment<=5, 2,
@@ -179,13 +198,28 @@ server<-function(input, output, session){
                                                                                                   ifelse(n$undernourishment>30, 8, 0))))))))
       nourish_y<-filter(n, Year==input$year)
       worldmap@data<-left_join(worldmap@data, nourish_y, by=c("NAME_EN"="name"))
+    }else if(input$var_h=="Freedom of Expression"){
+      dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
+      dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
+      dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
+      dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
+      dem$exp_fac<-ifelse(dem$v2x_freexp<=.05, 1, ifelse(dem$v2x_freexp>.05 & dem$v2x_freexp<=.15, 2,
+                                                         ifelse(dem$v2x_freexp>.15 & dem$v2x_freexp<=.25, 3, 
+                                                                ifelse(dem$v2x_freexp>.25 & dem$v2x_freexp<=.4, 4,
+                                                                       ifelse(dem$v2x_freexp>.4 & dem$v2x_freexp<=.6, 5, 
+                                                                              ifelse(dem$v2x_freexp>.6 & dem$v2x_freexp<=.75, 6,
+                                                                                     ifelse(dem$v2x_freexp>.75 & dem$v2x_freexp<=.9, 7,
+                                                                                            ifelse(dem$v2x_freexp>.9, 8,0))))))))
+      
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem, exp=v2x_freexp), Year==input$year)
+      worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
     }
     worldmap
     
   }) # End reactive making dat_c
   
   dat_i<-reactive({
-    imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
+    #imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
     imf<-filter(imf, !country %in% unique(imf$country)[1:49])
     imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
     
@@ -197,7 +231,7 @@ server<-function(input, output, session){
     worldmap@data<-left_join(worldmap@data, inv_y, by=c("NAME_EN"="name"))
     
     if(input$var_e=="GDP Growth"){
-      gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
+      #gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
       gdp$NY.GDP.MKTP.KD.ZG<-round(gdp$NY.GDP.MKTP.KD.ZG,2)
       gdp<-filter(gdp, !country %in% unique(gdp$country)[1:49])
       gdp<-rename(gdp, Year=year, name=country, gdp_growth=`NY.GDP.MKTP.KD.ZG`)
@@ -211,7 +245,7 @@ server<-function(input, output, session){
       gdp_y<-filter(gdp, Year==input$year)
       worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
     } else if(input$var_e=="Gini"){
-      gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
+      #gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
       gini<-filter(gini, !country %in% unique(gini$country)[1:49])
       gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
       gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
@@ -222,7 +256,7 @@ server<-function(input, output, session){
       worldmap@data<-left_join(worldmap@data, gini_y, by=c("NAME_EN"="name"))
     }
     if(input$var_h=="Undernourishment Prevelance"){
-      n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
+      #n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
       n<-filter(n, !country %in% unique(n$country)[1:49])
       n<-rename(n, Year=year, name=country, undernourishment=`SN.ITK.DEFC.ZS`)
       n$nourish_fac<-ifelse(n$undernourishment<=3.5, 1, ifelse(n$undernourishment>3.5 & n$undernourishment<=5, 2,
@@ -235,8 +269,6 @@ server<-function(input, output, session){
       nourish_y<-filter(n, Year==input$year)
       worldmap@data<-left_join(worldmap@data, nourish_y, by=c("NAME_EN"="name"))
     }else if(input$var_h=="Democracy Score"){ 
-      library(vdemdata)
-      dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem")],year>2004)
       dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
       dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
       dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
@@ -247,6 +279,21 @@ server<-function(input, output, session){
                                                                      ifelse(dem$v2x_libdem<=.9 & dem$v2x_libdem>.7, 5, 0)))))
       
       dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
+      worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
+    }else if(input$var_h=="Freedom of Expression"){
+      dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
+      dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
+      dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
+      dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
+      dem$exp_fac<-ifelse(dem$v2x_freexp<=.05, 1, ifelse(dem$v2x_freexp>.05 & dem$v2x_freexp<=.15, 2,
+                                                         ifelse(dem$v2x_freexp>.15 & dem$v2x_freexp<=.25, 3, 
+                                                                ifelse(dem$v2x_freexp>.25 & dem$v2x_freexp<=.4, 4,
+                                                                       ifelse(dem$v2x_freexp>.4 & dem$v2x_freexp<=.6, 5, 
+                                                                              ifelse(dem$v2x_freexp>.6 & dem$v2x_freexp<=.75, 6,
+                                                                                     ifelse(dem$v2x_freexp>.75 & dem$v2x_freexp<=.9, 7,
+                                                                                            ifelse(dem$v2x_freexp>.9, 8,0))))))))
+      
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem, exp=v2x_freexp), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
     }
     worldmap
@@ -277,7 +324,12 @@ server<-function(input, output, session){
     }else if(input$var_h=="Democracy Score"){
        paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
               "Investment from China (Million USD): $", f, "<br>",
-              "Democracy Score: ", dat_c()@data$dem_score)}
+              "Democracy Score: ", dat_c()@data$dem_score)
+    }else if(input$var_h=="Freedom of Expression"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from China (Million USD): $", f, "<br>",
+             "Freedom of Expression Score: ", dat_c()@data$exp)
+    }
   }) #end reactive defining pop_cont1_h
   
   pop_cont2<-reactive({
@@ -306,6 +358,10 @@ server<-function(input, output, session){
       paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
              "Undernourishment Rate: ", dat_i()@data$undernourishment)
+    }else if(input$var_h=="Freedom of Expression"){
+      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+             "Investment from IMF (Million USD): $", f, "<br>",
+             "Freedom of Expression Score: ", dat_i()@data$exp)
     }
   }) # end reactive that makes pop_cont2
   
@@ -327,7 +383,11 @@ server<-function(input, output, session){
       j(dat_c()@data$nourish_fac)
     }else if(input$var_h=="Democracy Score"){
       j<-colorFactor(palette="BrBG", domain=dat_c()@data$dem_fac)
-      j(dat_c()@data$dem_fac)}
+      j(dat_c()@data$dem_fac)
+    }else if(input$var_h=="Freedom of Expression"){
+      j<-colorFactor(palette="BrBG", domain=dat_c()@data$exp_fac)
+      j(dat_c()@data$exp_fac)
+    }
   }) 
   
   pal2<-reactive({
@@ -348,6 +408,9 @@ server<-function(input, output, session){
     }else if(input$var_h=="Undernourishment Prevelance"){
       j<-colorFactor(palette="BrBG", domain=dat_i()@data$nourish_fac)
       j(dat_i()@data$nourish_fac)
+    }else if(input$var_h=="Freedom of Expression"){
+      j<-colorFactor(palette="BrBG", domain=dat_i()@data$exp_fac)
+      j(dat_i()@data$exp_fac)
     }
   })
   
@@ -360,15 +423,15 @@ server<-function(input, output, session){
     else if(input$view=="North America"){45}
     else if(input$view=="South America"){-15}
   })
-  lat_reh<-reactive({
-    if(input$view_h=="World"){40}
-    else if(input$view_h=="Africa"){5}
-    else if(input$view_h=="Asia"){40}
-    else if(input$view_h=="Australiasia"){-25}
-    else if(input$view_h=="Europe"){50}
-    else if(input$view_h=="North America"){45}
-    else if(input$view_h=="South America"){-15}
-  })
+  # lat_reh<-reactive({
+  #   if(input$view_h=="World"){40}
+  #   else if(input$view_h=="Africa"){5}
+  #   else if(input$view_h=="Asia"){40}
+  #   else if(input$view_h=="Australiasia"){-25}
+  #   else if(input$view_h=="Europe"){50}
+  #   else if(input$view_h=="North America"){45}
+  #   else if(input$view_h=="South America"){-15}
+  # })
   
   lng_re<-reactive({
     if(input$view=="World"){0}
@@ -379,15 +442,15 @@ server<-function(input, output, session){
     else if(input$view=="North America"){-100}
     else if(input$view=="South America"){-65}
   })
-  lng_reh<-reactive({
-    if(input$view_h=="World"){0}
-    else if(input$view_h=="Africa"){25}
-    else if(input$view_h=="Asia"){90}
-    else if(input$view_h=="Australiasia"){135}
-    else if(input$view_h=="Europe"){15}
-    else if(input$view_h=="North America"){-100}
-    else if(input$view_h=="South America"){-65}
-  })
+  # lng_reh<-reactive({
+  #   if(input$view_h=="World"){0}
+  #   else if(input$view_h=="Africa"){25}
+  #   else if(input$view_h=="Asia"){90}
+  #   else if(input$view_h=="Australiasia"){135}
+  #   else if(input$view_h=="Europe"){15}
+  #   else if(input$view_h=="North America"){-100}
+  #   else if(input$view_h=="South America"){-65}
+  # })
   
   zoom_re<-reactive({
     if(input$view=="World"){1.4}
@@ -398,15 +461,15 @@ server<-function(input, output, session){
     else if(input$view=="North America"){2.5}
     else if(input$view=="South America"){2.5}
   })
-  zoom_reh<-reactive({
-    if(input$view_h=="World"){1.4}
-    else if(input$view_h=="Africa"){2.5}
-    else if(input$view_h=="Asia"){2.5}
-    else if(input$view_h=="Australiasia"){3}
-    else if(input$view_h=="Europe"){4}
-    else if(input$view_h=="North America"){2.5}
-    else if(input$view_h=="South America"){2.5}
-  })
+  # zoom_reh<-reactive({
+  #   if(input$view_h=="World"){1.4}
+  #   else if(input$view_h=="Africa"){2.5}
+  #   else if(input$view_h=="Asia"){2.5}
+  #   else if(input$view_h=="Australiasia"){3}
+  #   else if(input$view_h=="Europe"){4}
+  #   else if(input$view_h=="North America"){2.5}
+  #   else if(input$view_h=="South America"){2.5}
+  # })
   
   map_c<-reactive({
     if(input$var_e=="Investment"){
@@ -421,18 +484,18 @@ server<-function(input, output, session){
       # rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
       # rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
       
-      chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
-      chn_inv<-chn_inv %>%
-        group_by(Year, Country) %>%
-        mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
-      chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
-      
-      chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
-      chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
-      chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
-      chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
-      chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
-      chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
+      #chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
+      # chn_inv<-chn_inv %>%
+      #   group_by(Year, Country) %>%
+      #   mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
+      # chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
+      # 
+      # chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
+      # chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
+      # chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
+      # chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
+      # chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
+      # chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
       
       net_dat<-filter(chn_inv, Year==min(chn_inv$Year))[!duplicated(filter(chn_inv, Year==min(chn_inv$Year))$Country), c("Country","Year","inv_tot")]
       for(o in unique(chn_inv$Year)[-1]){
@@ -473,18 +536,18 @@ server<-function(input, output, session){
     # rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
     # rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
     
-    chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
-    chn_inv<-chn_inv %>%
-      group_by(Year, Country) %>%
-      mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
-    chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
-    
-    chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
-    chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
-    chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
-    chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
-    chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
-    chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
+    # chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
+    # chn_inv<-chn_inv %>%
+    #   group_by(Year, Country) %>%
+    #   mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
+    # chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
+    # 
+    # chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
+    # chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
+    # chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
+    # chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
+    # chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
+    # chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
     
     net_dat<-filter(chn_inv, Year==min(chn_inv$Year))[!duplicated(filter(chn_inv, Year==min(chn_inv$Year))$Country), c("Country","Year","inv_tot")]
     for(o in unique(chn_inv$Year)[-1]){
@@ -511,7 +574,7 @@ server<-function(input, output, session){
     verts_<-left_join(verts_, h[c("TO", "inv_tot")], by=c("name"="TO"))
     
     leaflet()%>%
-      setView(lat=lat_reh(), lng=lng_reh(), zoom=zoom_reh())%>%
+      setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
       addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1_h(), fillOpacity = .75, popup=pop_cont1_h(), 
                   highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
       #addLegend(pal=pal1(), values=dat_c()@data$growth_fac) %>%
@@ -532,7 +595,7 @@ server<-function(input, output, session){
       # rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
       # rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
       
-      imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
+      #imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
       imf<-filter(imf, !country %in% unique(imf$country)[1:49])
       imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
       
@@ -613,7 +676,7 @@ server<-function(input, output, session){
   }) #these end the reactive that makes map_i
   
   map_i2<-reactive({
-    imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
+    #imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
     imf<-filter(imf, !country %in% unique(imf$country)[1:49])
     imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
     
@@ -684,7 +747,7 @@ server<-function(input, output, session){
     verts_<-left_join(verts_, h[c("TO","IMF_cred")], by=c("name"="TO"))
     
     leaflet()%>%
-      setView(lat=lat_reh(), lng=lng_reh(), zoom=zoom_reh())%>%
+      setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
       addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2_h(), fillOpacity = .75, popup=pop_cont2_h(), 
                   highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
       addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
