@@ -338,7 +338,7 @@ server<-function(input, output, session){
     if(input$var_h=="Undernourishment Prevelance"){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from China (Million USD): $", f, "<br>",
-             "Undernourishment Rate: ", dat_c()@data$undernourishment)
+             "Undernourishment Rate: ", dat_c()@data$undernourishment, "%")
     }else if(input$var_h=="Democracy Score"){
        paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
               "Investment from China (Million USD): $", f, "<br>",
@@ -359,7 +359,7 @@ server<-function(input, output, session){
     }else if(input$var_e=="GDP Growth"){
       paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
-             "GDP Growth: ", dat_c()@data$gdp_growth)
+             "GDP Growth: ", dat_c()@data$gdp_growth, "%")
     }else if(input$var_e=="Gini"){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
@@ -380,7 +380,7 @@ server<-function(input, output, session){
     }else if(input$var_h=="Undernourishment Prevelance"){
       paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
-             "Undernourishment Rate: ", dat_i()@data$undernourishment)
+             "Undernourishment Rate: ", dat_i()@data$undernourishment, "%")
     }else if(input$var_h=="Freedom of Expression"){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", f, "<br>",
