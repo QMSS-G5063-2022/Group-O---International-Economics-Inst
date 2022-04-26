@@ -38,40 +38,18 @@ china_invs<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-
 ```
 
 ```{r}
-c_inv<-china_invs%>%
-  select(Region, Year, Quantity.in.Millions, Country)%>%
-  filter(Region==c('Sub-Saharan Africa', 'Arab Middle East and North Africa'))%>%
-  group_by(Year, Region)%>%
-  mutate(af_total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
-
-
 
 
 tot_reg<-china_invs%>%
   select(Region, Year, Quantity.in.Millions)%>%
   group_by(Year, Region)%>%
-  mutate(reg_total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
+  mutate(Total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
 ```
 
 
 ```{r}
 
-c<-ggplot(c_inv, aes(x=Year, y=af_total/100, color=Region))+
-  geom_line()+
-  geom_point()+
-  labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid to Africa and Middle East, 2005-2021')+
-  scale_color_manual(values=c('Red', 'Yellow'))+
-  theme(
-  panel.border = element_blank(),  
-  panel.grid.major = element_blank(),
-  panel.grid.minor = element_blank(),
-  panel.background = element_blank(),
-  axis.line = element_line(colour = "black"),
-  plot.title = element_text(hjust = 0.5)
-  )
-
-#by region facet
-r<-ggplot(tot_reg, aes(x=Year, y=reg_total/100, color=Region))+
+r<-ggplot(tot_reg, aes(x=Year, y=Total, color=Region))+
   geom_line()+
   geom_point()+
   labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid by Region, 2005-2021')+
@@ -89,9 +67,6 @@ r<-ggplot(tot_reg, aes(x=Year, y=reg_total/100, color=Region))+
   
 ```
 
-```{r}
-ggplotly(c)
-```
 
 ```{r}
 ggplotly(r)
