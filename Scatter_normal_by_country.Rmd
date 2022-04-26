@@ -110,4 +110,57 @@ ggplot()+
   geom_line(data=chn_inv[!duplicated(chn_inv$Year),], aes(x=Year,y=ann_tot), color="red")+
   theme_classic()
 ```
+```{r}
+library(MetBrewer)
+ggplot()+
+  geom_line(data=imf[!duplicated(imf$year),], aes(x=year,y=ann_imf/10000000000), color='blue')+
+  geom_vline(xintercept=2016, linetype="dotted", alpha=.5)+
+  geom_line(data=chn_inv[!duplicated(chn_inv$Year),], aes(x=Year,y=ann_tot/10000), color='red')+
+  labs(x='Year', y='Total Aid in Billions ($)', title='IMF vs. Chinese Aid')+
+theme(
+  panel.border = element_blank(),  
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black"),
+  plot.title = element_text(hjust = 0.5)
+  )
+```
+
+```{r}
+c<-ggplot()+
+  geom_line(data=imf[!duplicated(imf$year),], aes(x=year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=2)+
+  labs(x='Year', y='Total Aid in Billions ($)', title='Total IMF Aid, 1990-2020')+
+  theme(
+  panel.border = element_blank(),  
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black"),
+  plot.title = element_text(hjust = 0.5), 
+  legend.position = 'none'
+  )
+```
+
+```{r}
+i<-ggplot()+
+  geom_line(data=chn_inv[!duplicated(chn_inv$Year),], aes(x=Year,y=ann_tot/10000), color='darkred', size=2)+
+  labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2021')+
+theme(
+  panel.border = element_blank(),  
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black"),
+  plot.title = element_text(hjust = 0.5), 
+  legend.position = 'none'
+  )
+
+```
+
+```{r}
+library(patchwork)
+c+i
+```
+
 
