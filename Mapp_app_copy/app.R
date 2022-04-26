@@ -89,8 +89,8 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                         titlePanel(h1("Welcome", align = "center")),
                         fluidPage(
                           column(4, offset=4, textOutput("blurb")),
-                          column(3, textOutput("placeholder1")),
-                          column(3, offset=9, textOutput("placeholder2")))),
+                          column(3, plotOutput("line_c")),
+                          column(3, offset=9, plotOutput("line_imf")))),
                tabPanel("Economics", 
                         fluidPage(
                           tags$h1("Economic Indicators"),
@@ -1105,8 +1105,45 @@ server<-function(input, output, session){
   output$leaf_i2<-renderLeaflet(map_i2())
   
   output$blurb<-renderText("Here's a blurb with lots and lots of text. I want to see how the allignment is and how the page looks with a much longer blurb than the one i originally did which just said 'here's a blurb' and was a little bit too far to the left but maybe that was just because it was too short")
-  output$placeholder1<-renderText("Chart here")
-  output$placeholder2<-renderText("and/or here")
+  
+  chn_inv<-chn_inv %>%
+    group_by(Year) %>%
+    mutate(ann_tot = sum(as.numeric(inv_tot)))
+  
+  output$line_c<-renderPlot(
+    ggplot()+
+      geom_line(data=chn_inv[!duplicated(chn_inv$Year),], aes(x=Year,y=ann_tot/10000), color='darkred', size=2)+
+      labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2021')+
+      theme(
+        panel.border = element_blank(),  
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        plot.title = element_text(hjust = 0.5), 
+        legend.position = 'none'
+      )
+  )
+  
+  imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
+  imf<-imf %>%
+    group_by(Year) %>%
+    mutate(ann_imf=sum(as.numeric(IMF_cred),na.rm=T))
+  
+  output$line_imf<-renderPlot(
+    ggplot()+
+      geom_line(data=imf[!duplicated(imf$Year),], aes(x=Year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=2)+
+      labs(x='Year', y='Total Aid in Billions ($)', title='Total IMF Aid, 1990-2020')+
+      theme(
+        panel.border = element_blank(),  
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        plot.title = element_text(hjust = 0.5), 
+        legend.position = 'none'
+      )
+  )
   
 } #This one ends server
 
