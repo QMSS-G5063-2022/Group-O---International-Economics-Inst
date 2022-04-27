@@ -18,14 +18,6 @@ chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-upd
 chn_inv<-chn_inv %>%
   group_by(Year, Country) %>%
   mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
-chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
-
-chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
-chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
-chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
-chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
-chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
-chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
 
 worldmap = readOGR(dsn="Nat_world_map", layer="ne_50m_admin_0_countries")
 worldmap@data[worldmap@data$CONTINENT=="Oceania",]$CONTINENT<-"Australiasia"
@@ -125,6 +117,14 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
 )
 
 server<-function(input, output, session){
+  chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
+  
+  chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
+  chn_inv[chn_inv$Country=="myanmar",]$Country<-"burma"
+  chn_inv[chn_inv$Country=="russian federation",]$Country<-"russia"
+  chn_inv[chn_inv$Country=="trinidad-tobago",]$Country<-"trinidad and tobago"
+  chn_inv[chn_inv$Country=="bosnia",]$Country<-"bosnia and herzegovina"
+  chn_inv[chn_inv$Country=="sao tome",]$Country<-"uk"
   
   observe({
     val<-input$year_h
