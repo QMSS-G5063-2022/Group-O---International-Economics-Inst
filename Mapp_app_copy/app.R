@@ -38,6 +38,8 @@ gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
 gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
 n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005) #I named this stupidly. It's undernourishment data
 imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
+imf<-filter(imf, !country %in% unique(imf$country)[1:49])
+imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
 unemp<-WDI(indicator="JI.UEM.1564.ZS", country="all", start=2005, extra=F)
 
 worldmap@data[worldmap@data$NAME=="United States of America",]$NAME<-"United States"
@@ -222,8 +224,8 @@ server<-function(input, output, session){
   }) # End reactive making dat_c
   
   dat_i<-reactive({
-    imf<-filter(imf, !country %in% unique(imf$country)[1:49])
-    imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
+    # imf<-filter(imf, !country %in% unique(imf$country)[1:49])
+    # imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
     
     inv_y<-filter(imf, Year==input$year)[c("name","IMF_cred")]
     
@@ -564,8 +566,8 @@ server<-function(input, output, session){
                     popup=pop_cont2(), label=dat_i()@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
     }  else{  
-      imf<-filter(imf, !country %in% unique(imf$country)[1:49])
-      imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
+      # imf<-filter(imf, !country %in% unique(imf$country)[1:49])
+      # imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
       
       worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
       worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
@@ -644,8 +646,8 @@ server<-function(input, output, session){
   }) #these end the reactive that makes map_i
   
   map_i2<-reactive({
-    imf<-filter(imf, !country %in% unique(imf$country)[1:49])
-    imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
+    # imf<-filter(imf, !country %in% unique(imf$country)[1:49])
+    # imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
     
     worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
     worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
@@ -1126,7 +1128,7 @@ server<-function(input, output, session){
       
   )
   
-  imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
+  #imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
   imf<-imf %>%
     group_by(Year) %>%
     mutate(ann_imf=sum(as.numeric(IMF_cred),na.rm=T))
