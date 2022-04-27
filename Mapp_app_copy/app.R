@@ -11,6 +11,8 @@ suppressPackageStartupMessages(library(network))
 suppressPackageStartupMessages(library(maps))
 suppressPackageStartupMessages(library(igraph))
 suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(MetBrewer))
+library(vdemdata)
 
 chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
 chn_inv<-chn_inv %>%
@@ -31,7 +33,6 @@ worldmap@data[worldmap@data$CONTINENT=="Oceania",]$CONTINENT<-"Australiasia"
 rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
 rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
 
-library(vdemdata)
 dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem", "v2x_freexp")],year>2004)
 
 gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
@@ -110,6 +111,16 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           radioButtons("view_h", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c2"), leafletOutput("leaf_i2")),
                           splitLayout(plotlyOutput("scatter_ch"), plotlyOutput("scatter_ih"))
+                        )),
+               tabPanel("Country Details",
+                        fluidPage(
+                          selectizeInput("country_", "Select Country", multiple=F, choices=c("World", unique(chn_inv$Country)), selected="World",
+                                         options=list(create=F, placeholder="", maxitems=1,
+                                                      onDropdownOpen = I("function($dropdown) {if (!this.lastQuery.length) {this.close(); this.settings.openOnFocus = false;}}"),
+                                                      onType = I("function (str) {if (str === \"\") {this.close();}}")
+                                         )),
+                          plotOutput("sect"),
+                          plotlyOutput("line_out")
                         ))
 )
 
@@ -1147,6 +1158,86 @@ server<-function(input, output, session){
         legend.position = 'none')
   }, width=250, height=250
   )
+  
+  sec<-reactive({
+    if(input$country_=="World" | input$country_==""){
+      read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
+        select(Region, Sector, Year)%>%
+        group_by(Sector)%>%
+        summarize(frequency=n())
+    }else{
+      read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
+        filter(Country==input$country_) %>%
+        select(Region, Sector, Year)%>%
+        group_by(Sector)%>%
+        summarize(frequency=n())
+    }
+  })
+  
+  output$sect<-renderPlot({
+    ggplot(sec(), aes(x=Sector, y=frequency, fill=Sector))+ 
+      geom_bar(stat='identity')+
+      coord_flip()+
+      theme_bw()+
+      guides(fill=F)+
+      labs(title='Chinese Investment by Sector', y='Total Number of Projects', x='')+
+      scale_fill_manual(values=met.brewer("Renoir", n=14, type='continuous'))+
+      theme(
+        panel.border = element_blank(),  
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        plot.title = element_text(hjust = 0.5), 
+        legend.position = 'none'
+      )
+  })
+  
+  liney_line<-reactive({
+    if(input$country_=="World" | input$country_==""){
+      tot_reg<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
+        select(Region, Year, Quantity.in.Millions)%>%
+        group_by(Year, Region)%>%
+        mutate(Total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
+      ggplot(tot_reg, aes(x=Year, y=Total, color=Region))+
+        geom_line()+
+        geom_point()+
+        labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid by Region, 2005-2021')+
+        theme(
+          panel.border = element_blank(),  
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          plot.title = element_text(hjust = 0.5), 
+          legend.position = 'none'
+        )+
+        facet_wrap(vars(Region))+
+        scale_color_manual(values=met.brewer("Renoir", n=9, type='continuous'))
+    }else{
+      tot_reg<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
+        filter(Country==input$country_) %>%
+        select(Region, Year, Quantity.in.Millions)%>%
+        group_by(Year)%>%
+        mutate(Total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
+      ggplot(tot_reg, aes(x=Year, y=Total))+
+        geom_line()+
+        geom_point()+
+        labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid, 2005-2021')+
+        theme(
+          panel.border = element_blank(),  
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          plot.title = element_text(hjust = 0.5), 
+          legend.position = 'none'
+        )+
+        scale_color_manual(values=met.brewer("Renoir", n=9, type='continuous'))
+    }
+  })
+  
+  output$line_out<-renderPlotly(ggplotly(liney_line()))
   
 } #This one ends server
 
