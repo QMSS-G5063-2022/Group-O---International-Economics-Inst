@@ -87,10 +87,10 @@ worldmap@data[worldmap@data$NAME_EN=="United States Virgin Islands",]$NAME_EN<-"
 ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                tabPanel("Home",
                         titlePanel(h1("Welcome", align = "center")),
-                        fluidPage(
-                          column(4, offset=4, textOutput("blurb")),
+                        fluidRow(
                           column(3, plotOutput("line_c")),
-                          column(3, offset=9, plotOutput("line_imf")))),
+                          column(4, textOutput("blurb"), offset=1),
+                          column(3,  plotOutput("line_imf"), offset=1))),
                tabPanel("Economics", 
                         fluidPage(
                           tags$h1("Economic Indicators"),
@@ -1110,7 +1110,7 @@ server<-function(input, output, session){
     group_by(Year) %>%
     mutate(ann_tot = sum(as.numeric(inv_tot)))
   
-  output$line_c<-renderPlot(
+  output$line_c<-renderPlot({
     ggplot()+
       geom_line(data=chn_inv[!duplicated(chn_inv$Year),], aes(x=Year,y=ann_tot/10000), color='darkred', size=2)+
       labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2021')+
@@ -1121,8 +1121,9 @@ server<-function(input, output, session){
         panel.background = element_blank(),
         axis.line = element_line(colour = "black"),
         plot.title = element_text(hjust = 0.5), 
-        legend.position = 'none'
-      )
+        legend.position = 'none')
+}, width=250, height=250
+      
   )
   
   imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
@@ -1130,7 +1131,7 @@ server<-function(input, output, session){
     group_by(Year) %>%
     mutate(ann_imf=sum(as.numeric(IMF_cred),na.rm=T))
   
-  output$line_imf<-renderPlot(
+  output$line_imf<-renderPlot({
     ggplot()+
       geom_line(data=imf[!duplicated(imf$Year),], aes(x=Year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=2)+
       labs(x='Year', y='Total Aid in Billions ($)', title='Total IMF Aid, 1990-2020')+
@@ -1141,8 +1142,8 @@ server<-function(input, output, session){
         panel.background = element_blank(),
         axis.line = element_line(colour = "black"),
         plot.title = element_text(hjust = 0.5), 
-        legend.position = 'none'
-      )
+        legend.position = 'none')
+  }, width=250, height=250
   )
   
 } #This one ends server
