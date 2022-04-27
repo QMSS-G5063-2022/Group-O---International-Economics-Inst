@@ -112,7 +112,7 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                                                       onType = I("function (str) {if (str === \"\") {this.close();}}")
                                          )),
                           plotOutput("sect"),
-                          plotlyOutput("line_out")
+                          splitLayout(plotlyOutput("line_out"), plotlyOutput("line_out_imf"))
                         ))
 )
 
@@ -1238,6 +1238,73 @@ server<-function(input, output, session){
   })
   
   output$line_out<-renderPlotly(ggplotly(liney_line()))
+  
+  imf_liney_line<-reactive({
+    imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
+    imf[imf$name=="United Arab Emirates",]$name<-"UAE"
+    imf[imf$name=="United Kingdom",]$name<-"Britain"
+    imf[imf$name=="United States",]$name<-"USA"
+    imf[imf$name=="Lao PDR",]$name<-"Laos"
+    imf[imf$name=="Iran, Islamic Rep.",]$name<-"Iran"
+    imf[imf$name=="Yemen, Rep.",]$name<-"Yemen"
+    imf[imf$name=="Congo, Dem. Rep.",]$name<-"Democratic Republic of the Congo"
+    imf[imf$name=="Congo, Rep.",]$name<-"Congo"
+    imf[imf$name=="Syrian Arab Republic",]$name<-"Syria"
+    imf[imf$name=="Egypt, Arab Rep.",]$name<-"Egypt"
+    imf[imf$name=="Trinidad and Tobago",]$name<-"Trinidad-Tobago"
+    imf[imf$name=="Bahamas, The",]$name<-"Bahamas"
+    imf[imf$name=="Brunei Darussalam",]$name<-"Brunei"
+    imf[imf$name=="Korea, Dem. People's Rep.",]$name<-"North Korea"
+    imf[imf$name=="Korea, Rep.",]$name<-"South Korea"
+    imf[imf$name=="Bosnia and Herzegovina",]$name<-"Bosnia"
+    imf[imf$name=="Kyrgyz Republic",]$name<-"Kyrgyzstan"
+    imf[imf$name=="Cote d'Ivoire",]$name<-"Ivory Coast"
+    imf[imf$name=="Sao Tome and Principe",]$name<-"Sao Tome"
+    imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
+    imf[imf$name=="North Macedonia",]$name<-"Macedonia"
+    imf<-filter(imf, Year<2021)
+    
+    if(input$country_ %in% c("World","")){
+      imf_<-right_join(imf, read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')[c("Region","Country")], by=c("name"="Country"))
+      imf_<-imf_ %>%
+        group_by(Year, Region)%>%
+        mutate(`Annual Total`=round(sum(IMF_cred, na.rm=T)/1000000000,2))
+      ggplot(imf_, aes(x=Year, y=`Annual Total`, color=Region))+
+        geom_line()+
+        geom_point()+
+        labs(x='Year', y='Aid in Billions ($)', title='IMF Aid by Region, 2005-2021')+
+        theme(
+          panel.border = element_blank(),  
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          plot.title = element_text(hjust = 0.5), 
+          legend.position = 'none'
+        )+
+        facet_wrap(vars(Region))+
+        scale_color_manual(values=met.brewer("Renoir", n=9, type='continuous'))
+    }else{
+      imf<-filter(imf, name==input$country_)
+      imf$IMF_cred<-round(imf$IMF_cred/1000000000,2)
+      ggplot(rename(imf, `Credit from IMF`=IMF_cred), aes(x=Year, y=`Credit from IMF`))+
+        geom_line()+
+        geom_point()+
+        labs(x='Year', y='Aid in Billions ($)', title='IMF Aid, 2005-2021')+ 
+        theme(
+          panel.border = element_blank(),  
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          plot.title = element_text(hjust = 0.5), 
+          legend.position = 'none'
+        )+
+        scale_color_manual(values=met.brewer("Renoir", n=9, type='continuous'))
+    }
+  })
+  
+  output$line_out_imf<-renderPlotly(ggplotly(imf_liney_line()))
   
 } #This one ends server
 
