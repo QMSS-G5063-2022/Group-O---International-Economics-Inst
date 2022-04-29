@@ -14,6 +14,8 @@ suppressPackageStartupMessages(library(plotly))
 suppressPackageStartupMessages(library(MetBrewer))
 library(vdemdata)
 
+leaflet(options = leafletOptions(minZoom = 10))
+
 chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
 chn_inv<-chn_inv %>%
   group_by(Year, Country) %>%
@@ -21,6 +23,7 @@ chn_inv<-chn_inv %>%
 chn_inv<-chn_inv %>%
   group_by(Country) %>%
   mutate(projs=n())
+chn_inv$country2<-chn_inv$Country #for use later
 
 worldmap = readOGR(dsn="Nat_world_map", layer="ne_50m_admin_0_countries")
 worldmap@data[worldmap@data$CONTINENT=="Oceania",]$CONTINENT<-"Australiasia"
@@ -105,7 +108,11 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           selectInput("var_e","Select Variable to Map", choices=c("Investment", "GDP Growth", "Gini", "Unemployment")),
                           radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c"), leafletOutput("leaf_i")),
-                          splitLayout(plotlyOutput("scatter_c"), plotlyOutput("scatter_i"))
+                          br(),
+                          br(),
+                          br(),
+                          splitLayout(plotlyOutput("scatter_c"), plotlyOutput("scatter_i")),
+                          br()
                         )),
                tabPanel("Human Rights",
                         fluidPage(
@@ -114,7 +121,11 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           selectInput("var_h","Select Variable to Map", choices=c("Undernourishment Prevelance" ,"Democracy Score", "Freedom of Expression")),
                           radioButtons("view_h", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c2"), leafletOutput("leaf_i2")),
-                          splitLayout(plotlyOutput("scatter_ch"), plotlyOutput("scatter_ih"))
+                          br(),
+                          br(),
+                          br(),
+                          splitLayout(plotlyOutput("scatter_ch"), plotlyOutput("scatter_ih")),
+                          br()
                         )),
                tabPanel("Country Details",
                         fluidPage(
@@ -124,11 +135,16 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                                                       onType = I("function (str) {if (str === \"\") {this.close();}}")
                                          )),
                           plotOutput("sect"),
-                          splitLayout(plotlyOutput("line_out"), plotlyOutput("line_out_imf"))
+                          br(),
+                          br(),
+                          br(),
+                          splitLayout(plotlyOutput("line_out"), plotlyOutput("line_out_imf")),
+                          br()
                         ))
 )
 
 server<-function(input, output, session){
+  leaflet(options = leafletOptions(minZoom = 10))
   chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
   
   chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
@@ -501,7 +517,7 @@ server<-function(input, output, session){
   
   map_c<-reactive({
     if(input$var_e=="Investment"){
-      leaflet() %>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18)) %>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal1(), color = "black",
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
@@ -533,7 +549,7 @@ server<-function(input, output, session){
       
       verts_<-left_join(verts_, h[c("TO", "inv_tot")], by=c("name"="TO"))
       
-      leaflet()%>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -570,7 +586,7 @@ server<-function(input, output, session){
     
     verts_<-left_join(verts_, h[c("TO", "inv_tot")], by=c("name"="TO"))
     
-    leaflet()%>%
+    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
       setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
       addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1_h(), fillOpacity = .75, popup=pop_cont1_h(), 
                   highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -582,7 +598,7 @@ server<-function(input, output, session){
   
   map_i<-reactive({
     if(input$var_e=="Investment"){
-      leaflet() %>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18)) %>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(), weight=.5, color="black", fillOpacity = .75, fillColor = pal2(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
@@ -658,7 +674,7 @@ server<-function(input, output, session){
       verts_$lon<-as.numeric(verts_$lon)
       verts_<-left_join(verts_, h[c("TO","IMF_cred")], by=c("name"="TO"))
       
-      leaflet()%>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -738,7 +754,7 @@ server<-function(input, output, session){
     verts_$lon<-as.numeric(verts_$lon)
     verts_<-left_join(verts_, h[c("TO","IMF_cred")], by=c("name"="TO"))
     
-    leaflet()%>%
+    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
       setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
       addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2_h(), fillOpacity = .75, popup=pop_cont2_h(), 
                   highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -1222,7 +1238,7 @@ server<-function(input, output, session){
   output$line_c<-renderPlot({
     ggplot()+
       geom_line(data=filter(chn_inv[!duplicated(chn_inv$Year),], Year<2021), aes(x=Year,y=ann_tot/10000), color='darkred', size=2)+
-      labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2021')+
+      labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2020')+
       theme(
         panel.border = element_blank(),  
         panel.grid.major = element_blank(),
@@ -1254,16 +1270,16 @@ server<-function(input, output, session){
         legend.position = 'none')
   }, width=250, height=250
   )
-  
+
   sec<-reactive({
     if(input$country_=="World" | input$country_==""){
-      read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
+      chn_inv%>%
         select(Region, Sector, Year)%>%
         group_by(Sector)%>%
         summarize(frequency=n())
     }else{
-      read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
-        filter(Country==input$country_) %>%
+      chn_inv%>%
+        filter(country2==input$country_) %>%
         select(Region, Sector, Year)%>%
         group_by(Sector)%>%
         summarize(frequency=n())
@@ -1291,11 +1307,11 @@ server<-function(input, output, session){
   
   liney_line<-reactive({
     if(input$country_=="World" | input$country_==""){
-      tot_reg<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
+      tot_reg<-chn_inv%>%
         select(Region, Year, Quantity.in.Millions)%>%
         group_by(Year, Region)%>%
-        mutate(Total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
-      ggplot(tot_reg, aes(x=Year, y=Total, color=Region))+
+        mutate(`Annual Total Investment`=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
+      ggplot(tot_reg, aes(x=Year, y=`Annual Total Investment`, color=Region))+
         geom_line()+
         geom_point()+
         labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid by Region, 2005-2021')+
@@ -1311,14 +1327,14 @@ server<-function(input, output, session){
         facet_wrap(vars(Region))+
         scale_color_manual(values=met.brewer("Renoir", n=9, type='continuous'))
     }else{
-      tot_reg<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')%>%
-        filter(Country==input$country_) %>%
+      tot_reg<-chn_inv%>%
+        filter(country2==input$country_) %>%
         select(Region, Year, Quantity.in.Millions)%>%
         group_by(Year)%>%
-        mutate(Total=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
-      ggplot(tot_reg, aes(x=Year, y=Total))+
-        geom_line()+
-        geom_point()+
+        mutate(`Annual Total Investment`=sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions)))/100)
+      ggplot(tot_reg, aes(x=Year, y=`Annual Total Investment`))+
+        geom_line(color="#AA381E")+
+        geom_point(color="#AA381E")+
         labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid, 2005-2021')+
         theme(
           panel.border = element_blank(),  
@@ -1336,6 +1352,8 @@ server<-function(input, output, session){
   output$line_out<-renderPlotly(ggplotly(liney_line()))
   
   imf_liney_line<-reactive({
+    gini<-rename(gini, Year=year, name=country, `Gini Coefficient`=`SI.POV.GINI`)
+    imf<-left_join(imf, gini, by=c("name", "Year"))
     imf[imf$name=="Venezuela, RB",]$name<-"Venezuela"
     imf[imf$name=="United Arab Emirates",]$name<-"UAE"
     imf[imf$name=="United Kingdom",]$name<-"Britain"
@@ -1358,10 +1376,23 @@ server<-function(input, output, session){
     imf[imf$name=="Sao Tome and Principe",]$name<-"Sao Tome"
     imf[imf$name=="Cabo Verde",]$name<-"Cape Verde"
     imf[imf$name=="North Macedonia",]$name<-"Macedonia"
+    
+    dem[dem$country_name=="United States of America",]$country_name<-"USA"
+    dem[dem$country_name=="United Kingdom",]$country_name<-"Britain"
+    dem[dem$country_name=="United Arab Emirates",]$country_name<-"UAE"
+    dem[dem$country_name=="Burma/Myanmar",]$country_name<-"Myanmar"
+    dem[dem$country_name=="Russia",]$country_name<-"Russian Federation"
+    dem[dem$country_name=="Republic of the Congo",]$country_name<-"Congo"
+    dem[dem$country_name=="Trinidad and Tobago",]$country_name<-"Trinidad-Tobago"
+    dem[dem$country_name=="Bosnia and Herzegovina",]$country_name<-"Bosnia"
+    dem[dem$country_name=="Sao Tome and Principe",]$country_name<-"Sao Tome"
+    dem[dem$country_name=="North Macedonia",]$country_name<-"Macedonia"
+    imf<-left_join(imf, dem, by=c("name"="country_name", "Year"="year"))
+    imf<-rename(imf, `Liberal Democracy Score`=v2x_libdem)
     imf<-filter(imf, Year<2021)
     
     if(input$country_ %in% c("World","")){
-      imf_<-right_join(imf, read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')[c("Region","Country")], by=c("name"="Country"))
+      imf_<-right_join(imf, chn_inv[c("Region","country2")], by=c("name"="country2"))
       imf_<-imf_ %>%
         group_by(Year, Region)%>%
         mutate(`Annual Total`=round(sum(IMF_cred, na.rm=T)/1000000000,2))
@@ -1383,9 +1414,11 @@ server<-function(input, output, session){
     }else{
       imf<-filter(imf, name==input$country_)
       imf$IMF_cred<-round(imf$IMF_cred/1000000000,2)
-      ggplot(rename(imf, `Credit from IMF`=IMF_cred), aes(x=Year, y=`Credit from IMF`))+
-        geom_line()+
-        geom_point()+
+      ggplot(rename(imf, `Credit from IMF`=IMF_cred), aes(x=Year))+
+        geom_line(aes(y=`Credit from IMF`),color="#05358B")+
+        geom_line(aes(y=`Gini Coefficient`), color="orange")+
+        geom_line(aes(y=`Liberal Democracy Score`*100), color="green")+
+        geom_point(aes(y=`Credit from IMF`), color="#05358B")+
         labs(x='Year', y='Aid in Billions ($)', title='IMF Aid, 2005-2021')+ 
         theme(
           panel.border = element_blank(),  
