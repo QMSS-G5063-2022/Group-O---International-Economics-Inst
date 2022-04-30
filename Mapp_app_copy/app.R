@@ -100,12 +100,15 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                         fluidRow(
                           column(3, plotOutput("line_c")),
                           column(4, textOutput("blurb"), offset=1),
-                          column(3,  plotOutput("line_imf"), offset=1))),
+                          column(3,  plotOutput("line_imf"), offset=1)),
+                        br(),
+                        br(),
+                        splitLayout(leafletOutput("leaf_c_inv"), leafletOutput("leaf_i_inv"))),
                tabPanel("Economics", 
                         fluidPage(
                           tags$h1("Economic Indicators"),
                           sliderInput("year", label="Select Year", min=2005, max=2020, value=2015, sep=""),
-                          selectInput("var_e","Select Variable to Map", choices=c("Investment", "GDP Growth", "Gini", "Unemployment")),
+                          selectInput("var_e","Select Variable to Map", choices=c("GDP Growth", "Gini", "Unemployment")),
                           radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c"), leafletOutput("leaf_i")),
                           br(),
@@ -183,9 +186,6 @@ server<-function(input, output, session){
       gdp$NY.GDP.MKTP.KD.ZG<-round(gdp$NY.GDP.MKTP.KD.ZG,2)
       gdp<-filter(gdp, !country %in% unique(gdp$country)[1:49])
       gdp<-rename(gdp, Year=year, name=country, gdp_growth=`NY.GDP.MKTP.KD.ZG`)
-      #gdp$z<-(gdp$gdp_growth-mean(gdp$gdp_growth, na.rm=T))/sd(gdp$gdp_growth,na.rm = T)
-      #gdp$mean_scaled<-(gdp$gdp_growth/mean(gdp$gdp_growth,na.rm=T))
-      #gdp$min_max<-(gdp$gdp_growth-min(gdp$gdp_growth, na.rm=T))/(max(gdp$gdp_growth,na.rm=T)-min(gdp$gdp_growth,na.rm=T))
       gdp$growth_fac<-ifelse(-10>=gdp$gdp_growth,1, ifelse(gdp$gdp_growth<= -2.5 & gdp$gdp_growth>-10, 2, 
                                                            ifelse(gdp$gdp_growth<= 0 & gdp$gdp_growth>-2.5, 3, 
                                                                   ifelse(gdp$gdp_growth<= 2.5 & gdp$gdp_growth>0, 4, 
@@ -263,9 +263,6 @@ server<-function(input, output, session){
   }) # End reactive making dat_c
   
   dat_i<-reactive({
-    # imf<-filter(imf, !country %in% unique(imf$country)[1:49])
-    # imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-    
     inv_y<-filter(imf, Year==input$year)[c("name","IMF_cred")]
     
     worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
@@ -274,7 +271,6 @@ server<-function(input, output, session){
     worldmap@data<-left_join(worldmap@data, inv_y, by=c("NAME_EN"="name"))
     
     if(input$var_e=="GDP Growth"){
-      #gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
       gdp$NY.GDP.MKTP.KD.ZG<-round(gdp$NY.GDP.MKTP.KD.ZG,2)
       gdp<-filter(gdp, !country %in% unique(gdp$country)[1:49])
       gdp<-rename(gdp, Year=year, name=country, gdp_growth=`NY.GDP.MKTP.KD.ZG`)
@@ -288,7 +284,6 @@ server<-function(input, output, session){
       gdp_y<-filter(gdp, Year==input$year)
       worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
     } else if(input$var_e=="Gini"){
-      #gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
       gini<-filter(gini, !country %in% unique(gini$country)[1:49])
       gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
       gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
@@ -310,7 +305,6 @@ server<-function(input, output, session){
       worldmap@data<-left_join(worldmap@data, unemp, by=c("NAME_EN"="name"))
     }
     if(input$var_h=="Undernourishment Prevelance"){
-      #n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005)
       n<-filter(n, !country %in% unique(n$country)[1:49])
       n<-rename(n, Year=year, name=country, undernourishment=`SN.ITK.DEFC.ZS`)
       n$nourish_fac<-ifelse(n$undernourishment<=3.5, 1, ifelse(n$undernourishment>3.5 & n$undernourishment<=5, 2,
@@ -356,10 +350,7 @@ server<-function(input, output, session){
   pop_cont1<-reactive({
     f<-dat_c()@data$inv_tot
     f[is.na(f)]<-0
-    if(input$var_e=="Investment"){
-      paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
-             "Investment from China (Million USD): $", f)
-    }else if(input$var_e=="GDP Growth"){
+    if(input$var_e=="GDP Growth"){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from China (Million USD): $", f, "<br>",
              "GDP Growth Rate: ", dat_c()@data$gdp_growth, "%")
@@ -515,6 +506,46 @@ server<-function(input, output, session){
     else if(input$view=="South America"){2.5}
   })
   
+  pal_c_inv<-reactive({
+    j<-colorNumeric(palette="Reds", domain=dat_c()@data$inv_tot)
+    j(dat_c()@data$inv_tot)
+  })
+  pop_cont_c_inv<-reactive({
+    f<-dat_c()@data$inv_tot
+    f[is.na(f)]<-0
+    paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
+           "Investment from China (Million USD): $", f)
+  })
+  
+  pal_i_inv<-reactive({
+    j<-colorNumeric(palette="Blues", domain=dat_i()@data$IMF_cred)
+    j(dat_i()@data$IMF_cred)
+  })
+  pop_cont_i_inv<-reactive({
+    f<-dat_i()@data$IMF_cred
+    f[is.na(f)]<-0
+    paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
+           "IMF Investment (Million USD): $", round(f/1000000, 0))
+  })
+  
+  map_c_inv<-reactive({
+    leaflet(options=leafletOptions(minZoom = 1, maxZoom = 18)) %>%
+      setView(lat=40, lng=0, zoom=1.4) %>%
+      addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal_c_inv(), color="black",
+                  highlightOptions=highlightOptions(color="white", weight = 2, bringToFront = T, sendToBack = T),
+                                   popup=pop_cont_c_inv(), label=dat_c()@data$SOVEREIGNT) %>%
+                    addEasyButton(easyButton(icon="fa-globe", title="Home", onClick = JS("function(btn, map){ map.setZoom(1.4); }")))
+  })
+  
+  map_i_inv<-reactive({
+    leaflet(options=leafletOptions(minZoom = 1, maxZoom = 18)) %>%
+      setView(lat=40, lng=0, zoom=1.4) %>%
+      addPolygons(data=dat_i(), weight=.5, fillOpacity = .75, fillColor = pal_i_inv(), color="black",
+                  highlightOptions=highlightOptions(color="white", weight = 2, bringToFront = T, sendToBack = T),
+                  popup=pop_cont_i_inv(), label=dat_i()@data$SOVEREIGNT) %>%
+      addEasyButton(easyButton(icon="fa-globe", title="Home", onClick = JS("function(btn, map){ map.setZoom(1.4); }")))
+  })
+  
   map_c<-reactive({
     if(input$var_e=="Investment"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18)) %>%
@@ -557,7 +588,7 @@ server<-function(input, output, session){
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
 
-    } #ends if(net==T)
+    } 
   }) #these end the reactive that makes map_c
   
   map_c2<-reactive({
@@ -605,9 +636,6 @@ server<-function(input, output, session){
                     popup=pop_cont2(), label=dat_i()@data$SOVEREIGNT) %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }")))
     }  else{  
-      # imf<-filter(imf, !country %in% unique(imf$country)[1:49])
-      # imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-      
       worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
       worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
       
@@ -685,9 +713,6 @@ server<-function(input, output, session){
   }) #these end the reactive that makes map_i
   
   map_i2<-reactive({
-    # imf<-filter(imf, !country %in% unique(imf$country)[1:49])
-    # imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
-    
     worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
     worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
     
@@ -772,41 +797,6 @@ server<-function(input, output, session){
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
                                      "GDP Growth Rate: ", filter(dat_c()@data, CONTINENT==input$view)$gdp_growth, "%","<extra></extra>"))%>%
           layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Europe"), x=~inv_tot, y=~gdp_growth, type="scatter", mode="markers", 
-      #           marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Europe")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Europe")$inv_tot, "<br>",
-      #                                "GDP Growth Rate: ", filter(dat_c()@data, CONTINENT=="Europe")$gdp_growth, "%","<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Asia"), x=~inv_tot, y=~gdp_growth, type="scatter", mode="markers", 
-      #           marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Asia")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Asia")$inv_tot, "<br>",
-      #                                "GDP Growth Rate: ", filter(dat_c()@data, CONTINENT=="Asia")$gdp_growth, "%","<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="North America"), x=~inv_tot, y=~gdp_growth, type="scatter", mode="markers",
-      #           marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="North America")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="North America")$inv_tot, "<br>",
-      #                                "GDP Growth Rate: ", filter(dat_c()@data, CONTINENT=="North America")$gdp_growth, "%","<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="South America"), x=~inv_tot, y=~gdp_growth, type="scatter", mode="markers", 
-      #           marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="South America")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="South America")$inv_tot, "<br>",
-      #                                "GDP Growth Rate: ", filter(dat_c()@data, CONTINENT=="South America")$gdp_growth, "%","<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Australiasia"), x=~inv_tot, y=~gdp_growth, type="scatter", mode="markers", 
-      #           marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Australiasia")$inv_tot, "<br>",
-      #                                "GDP Growth Rate: ", filter(dat_c()@data, CONTINENT=="Australiasia")$gdp_growth, "%","<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~gdp_growth, type="scatter", mode="markers", color=~CONTINENT, 
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
@@ -821,36 +811,6 @@ server<-function(input, output, session){
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
                                      "Gini Coefficient: ", filter(dat_c()@data, CONTINENT==input$view)$gini, "<extra></extra>"))%>%
           layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Asia"), x=~inv_tot, y=~gini, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Asia")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Asia")$inv_tot, "<br>",
-      #                                "Gini Coefficient: ", filter(dat_c()@data, CONTINENT=="Asia")$gini, "<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Europe"), x=~inv_tot, y=~gini, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Europe")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Europe")$inv_tot, "<br>",
-      #                                "Gini Coefficient: ", filter(dat_c()@data, CONTINENT=="Europe")$gini,"<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="North America"), x=~inv_tot, y=~gini, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="North America")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="North America")$inv_tot, "<br>",
-      #                                "Gini Coefficient: ", filter(dat_c()@data, CONTINENT=="North America")$gini,"<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="South America"), x=~inv_tot, y=~gini, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="South America")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="South America")$inv_tot, "<br>",
-      #                                "Gini Coefficient: ", filter(dat_c()@data, CONTINENT=="South America")$gini,"<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Australiasia"), x=~inv_tot, y=~gini, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Australiasia")$inv_tot, "<br>",
-      #                                "Gini Coefficient: ", filter(dat_c()@data, CONTINENT=="Australiasia")$gini,"<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~gini, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
@@ -865,36 +825,6 @@ server<-function(input, output, session){
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
                                      "Unemployment Rate: ", round(filter(dat_c()@data, CONTINENT==input$view)$unemp,2), "%","<extra></extra>"))%>%
           layout(title="Unemployment Rate",yaxis=list(title="Unemployment Rate"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Austrliasia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Australiasia"),x=~inv_tot, y=~unemp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Australiasia")$inv_tot, "<br>",
-      #                                "Unemployment Rate: ", filter(dat_c()@data, CONTINENT=="Australiasia")$unemp, "%","<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Unemployment Rate"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Europe"),x=~inv_tot, y=~unemp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Europe")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Europe")$inv_tot, "<br>",
-      #                                "Unemployment Rate: ", filter(dat_c()@data, CONTINENT=="Europe")$unemp, "%","<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Unemployment Rate"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="North America"),x=~inv_tot, y=~unemp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="North America")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="North America")$inv_tot, "<br>",
-      #                                "Unemployment Rate: ", filter(dat_c()@data, CONTINENT=="North America")$unemp, "%","<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Unemployment Rate"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="South America"),x=~inv_tot, y=~unemp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="South America")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="South America")$inv_tot, "<br>",
-      #                                "Unemployment Rate: ", filter(dat_c()@data, CONTINENT=="South America")$unemp, "%","<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Unemployment Rate"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Asia"),x=~inv_tot, y=~unemp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Asia")$SOVEREIGNT, "<br>",
-      #                                "Chinese Investment: $", filter(dat_c()@data, CONTINENT=="Asia")$inv_tot, "<br>",
-      #                                "Unemployment Rate: ", filter(dat_c()@data, CONTINENT=="Asia")$unemp, "%","<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Unemployment Rate"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~unemp, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
@@ -913,26 +843,6 @@ server<-function(input, output, session){
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
                                      "GDP Growth Rate: ", filter(dat_i()@data, CONTINENT==input$view)$gdp_growth, "%","<extra></extra>"))%>%
           layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Asia"), x=~IMF_cred, y=~gdp_growth, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Australiasia"), x=~IMF_cred, y=~gdp_growth, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Europe"), x=~IMF_cred, y=~gdp_growth, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="North America"), x=~IMF_cred, y=~gdp_growth, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="South America"), x=~IMF_cred, y=~gdp_growth, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~gdp_growth, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
@@ -947,26 +857,6 @@ server<-function(input, output, session){
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
                                      "Gini Coefficient: ", filter(dat_i()@data, CONTINENT==input$view)$gini,"<extra></extra>"))%>%
           layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Asia"), x=~IMF_cred, y=~gini, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Australiasia"), x=~IMF_cred, y=~gini, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Europe"), x=~IMF_cred, y=~gini, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="North America"), x=~IMF_cred, y=~gini, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="South America"), x=~IMF_cred, y=~gini, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Inequality",yaxis=list(title="Gini Coefficient"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~gini, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
@@ -981,26 +871,6 @@ server<-function(input, output, session){
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
                                      "Unemployment Rate: ", round(filter(dat_i()@data, CONTINENT==input$view)$unemp,2), "%","<extra></extra>"))%>%
           layout(title="Unemployment Rate",yaxis=list(title="Percent Unemployed"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Asia"), x=~IMF_cred, y=~unemp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Percent Unemployed"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Australiasia"), x=~IMF_cred, y=~unemp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Percent Unemployed"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Europe"), x=~IMF_cred, y=~unemp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Percent Unemployed"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="North America"), x=~IMF_cred, y=~unemp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Percent Unemployed"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="South America"), x=~IMF_cred, y=~unemp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unemployment Rate",yaxis=list(title="Percent Unemployed"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~unemp, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
@@ -1019,26 +889,6 @@ server<-function(input, output, session){
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
                                      "Undernourishment Rate: ", filter(dat_c()@data, CONTINENT==input$view)$undernourishment, "%","<extra></extra>"))%>%
           layout(title="Undernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Asia"), x=~inv_tot, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Undernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Australiasia"), x=~inv_tot, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Undernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Europe"), x=~inv_tot, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Undernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="North America"), x=~inv_tot, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Undernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="South America"), x=~inv_tot, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Undernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~undernourishment, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
@@ -1053,26 +903,6 @@ server<-function(input, output, session){
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
                                      "Liberal Democracy Score: ", filter(dat_c()@data, CONTINENT==input$view)$dem_score,"<extra></extra>"))%>%
           layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Asia"), x=~inv_tot, y=~dem_score, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Australiasia"), x=~inv_tot, y=~dem_score, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Europe"), x=~inv_tot, y=~dem_score, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="North America"), x=~inv_tot, y=~dem_score, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="South America"), x=~inv_tot, y=~dem_score, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~dem_score, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
@@ -1087,26 +917,6 @@ server<-function(input, output, session){
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
                                      "Freedom of Expression Score: ", filter(dat_c()@data, CONTINENT==input$view)$exp,"<extra></extra>"))%>%
           layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Asia"), x=~inv_tot, y=~exp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Australiasia"), x=~inv_tot, y=~exp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="Europe"), x=~inv_tot, y=~exp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="North America"), x=~inv_tot, y=~exp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from China"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_c()@data, CONTINENT=="South America"), x=~inv_tot, y=~exp, type="scatter", mode="markers", marker=list(color="#AA381E"),
-      #           hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~exp, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
@@ -1125,26 +935,6 @@ server<-function(input, output, session){
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
                                      "Undernourishment Rate: ", filter(dat_i()@data, CONTINENT==input$view)$undernourishment, "%" ,"<extra></extra>"))%>%
           layout(title="Unernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Asia"), x=~IMF_cred, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Australiasia"), x=~IMF_cred, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Europe"), x=~IMF_cred, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="North America"), x=~IMF_cred, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="South America"), x=~IMF_cred, y=~undernourishment, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Unernourishment",yaxis=list(title="Percent Undernourished"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~undernourishment, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
@@ -1159,26 +949,6 @@ server<-function(input, output, session){
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
                                      "Liberal Democracy Score: ", filter(dat_i()@data, CONTINENT==input$view)$dem_score,"<extra></extra>"))%>%
           layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Asia"), x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Australiasia"), x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Europe"), x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="North America"), x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="South America"), x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
@@ -1193,26 +963,6 @@ server<-function(input, output, session){
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
                                      "Freedom of Expression Score: ", filter(dat_i()@data, CONTINENT==input$view)$exp, "%" ,"<extra></extra>"))%>%
           layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Asia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Asia"), x=~IMF_cred, y=~exp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Asia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Australiasia"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Australiasia"), x=~IMF_cred, y=~exp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Australiasia")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="Europe"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="Europe"), x=~IMF_cred, y=~exp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="Europe")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="North America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="North America"), x=~IMF_cred, y=~exp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="North America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from IMF"))
-      # }else if(input$view=="South America"){
-      #   plot_ly(data=filter(dat_i()@data, CONTINENT=="South America"), x=~IMF_cred, y=~exp, type="scatter", mode="markers", marker=list(color="#05358B"),
-      #           hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT=="South America")$SOVEREIGNT, "<extra></extra>"))%>%
-      #     layout(title="Freedom of Expression",yaxis=list(title="Freedom of Expression Score"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~exp, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
@@ -1225,6 +975,9 @@ server<-function(input, output, session){
   
   output$leaf_c<-renderLeaflet(map_c())
   output$leaf_c2<-renderLeaflet(map_c2())
+  
+  output$leaf_c_inv<-renderLeaflet(map_c_inv())
+  output$leaf_i_inv<-renderLeaflet(map_i_inv())
   
   output$leaf_i<-renderLeaflet(map_i())
   output$leaf_i2<-renderLeaflet(map_i2())
@@ -1251,7 +1004,6 @@ server<-function(input, output, session){
       
   )
   
-  #imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
   imf<-imf %>%
     group_by(Year) %>%
     mutate(ann_imf=sum(as.numeric(IMF_cred),na.rm=T))
