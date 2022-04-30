@@ -31,7 +31,7 @@ worldmap@data[worldmap@data$CONTINENT=="Oceania",]$CONTINENT<-"Australiasia"
 rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
 rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
 
-dem<-filter(vdem[c("country_name","country_text_id","year","v2x_libdem", "v2x_freexp")],year>2004)
+dem<-filter(vdem[c("country_name","country_text_id","year","v2x_egaldem", "v2x_freexp")],year>2004)
 
 gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
 gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
@@ -222,12 +222,14 @@ server<-function(input, output, session){
      dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
      dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
      dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
-     dem$dem_fac<-ifelse(dem$v2x_libdem<=.1, 1, ifelse(dem$v2x_libdem<=.25 & dem$v2x_libdem>.1, 2,
-                                                       ifelse(dem$v2x_libdem<=.5 & dem$v2x_libdem>.25, 3,
-                                                              ifelse(dem$v2x_libdem<=.7 & dem$v2x_libdem>.5, 4, 
-                                                                     ifelse(dem$v2x_libdem<=.9 & dem$v2x_libdem>.7, 5, 0)))))
+     dem$dem_fac<-ifelse(dem$v2x_egaldem<=.05, 1, ifelse(dem$v2x_egaldem<=.1 & dem$v2x_egaldem>.05, 2,
+                                                       ifelse(dem$v2x_egaldem<=.2 & dem$v2x_egaldem>.1, 3,
+                                                              ifelse(dem$v2x_egaldem<=.3 & dem$v2x_egaldem>.2, 4, 
+                                                                     ifelse(dem$v2x_egaldem<=.5 & dem$v2x_egaldem>.3, 5, 
+                                                                            ifelse(dem$v2x_egaldem<=.7 & dem$v2x_egaldem>.5, 6,
+                                                                                   ifelse(dem$v2x_egaldem<=.9 & dem$v2x_egaldem>.7, 7, 0)))))))
      
-    dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
+    dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_egaldem), Year==input$year)
     worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
    
     }else if(input$var_h=="Undernourishment Prevelance"){
@@ -255,7 +257,7 @@ server<-function(input, output, session){
                                                                                      ifelse(dem$v2x_freexp>.75 & dem$v2x_freexp<=.9, 7,
                                                                                             ifelse(dem$v2x_freexp>.9, 8,0))))))))
       
-      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem, exp=v2x_freexp), Year==input$year)
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_egaldem, exp=v2x_freexp), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
     }
     worldmap
@@ -321,12 +323,12 @@ server<-function(input, output, session){
       dem[dem$country_text_id=="SSD",]$country_text_id<-"SDS"
       dem[dem$country_text_id=="PSE",]$country_text_id<-"PSX"
       dem[dem$country_text_id=="SML",]$country_text_id<-"SOL"
-      dem$dem_fac<-ifelse(dem$v2x_libdem<=.1, 1, ifelse(dem$v2x_libdem<=.25 & dem$v2x_libdem>.1, 2,
-                                                       ifelse(dem$v2x_libdem<=.5 & dem$v2x_libdem>.25, 3,
-                                                              ifelse(dem$v2x_libdem<=.7 & dem$v2x_libdem>.5, 4, 
-                                                                     ifelse(dem$v2x_libdem<=.9 & dem$v2x_libdem>.7, 5, 0)))))
+      dem$dem_fac<-ifelse(dem$v2x_egaldem<=.1, 1, ifelse(dem$v2x_egaldem<=.25 & dem$v2x_egaldem>.1, 2,
+                                                       ifelse(dem$v2x_egaldem<=.5 & dem$v2x_egaldem>.25, 3,
+                                                              ifelse(dem$v2x_egaldem<=.7 & dem$v2x_egaldem>.5, 4, 
+                                                                     ifelse(dem$v2x_egaldem<=.9 & dem$v2x_egaldem>.7, 5, 0)))))
       
-      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem), Year==input$year)
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_egaldem), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
     }else if(input$var_h=="Freedom of Expression"){
       dem[dem$country_text_id=="XKX",]$country_text_id<-"KOS"
@@ -341,7 +343,7 @@ server<-function(input, output, session){
                                                                                      ifelse(dem$v2x_freexp>.75 & dem$v2x_freexp<=.9, 7,
                                                                                             ifelse(dem$v2x_freexp>.9, 8,0))))))))
       
-      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_libdem, exp=v2x_freexp), Year==input$year)
+      dem<-filter(rename(dem, Year=year, name=country_name, dem_score=v2x_egaldem, exp=v2x_freexp), Year==input$year)
       worldmap@data<-left_join(worldmap@data, dem, by=c("ADM0_A3"="country_text_id"))
     }
     worldmap
@@ -529,7 +531,7 @@ server<-function(input, output, session){
   })
   
   map_c_inv<-reactive({
-    leaflet(options=leafletOptions(minZoom = 1, maxZoom = 18)) %>%
+    leaflet(options=leafletOptions(minZoom = 1, maxZoom = 7)) %>%
       setView(lat=40, lng=0, zoom=1.4) %>%
       addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal_c_inv(), color="black",
                   highlightOptions=highlightOptions(color="white", weight = 2, bringToFront = T, sendToBack = T),
@@ -538,7 +540,7 @@ server<-function(input, output, session){
   })
   
   map_i_inv<-reactive({
-    leaflet(options=leafletOptions(minZoom = 1, maxZoom = 18)) %>%
+    leaflet(options=leafletOptions(minZoom = 1, maxZoom = 7)) %>%
       setView(lat=40, lng=0, zoom=1.4) %>%
       addPolygons(data=dat_i(), weight=.5, fillOpacity = .75, fillColor = pal_i_inv(), color="black",
                   highlightOptions=highlightOptions(color="white", weight = 2, bringToFront = T, sendToBack = T),
@@ -548,7 +550,7 @@ server<-function(input, output, session){
   
   map_c<-reactive({
     if(input$var_e=="Investment"){
-      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18)) %>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7)) %>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal1(), color = "black",
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
@@ -580,7 +582,7 @@ server<-function(input, output, session){
       
       verts_<-left_join(verts_, h[c("TO", "inv_tot")], by=c("name"="TO"))
       
-      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -617,7 +619,7 @@ server<-function(input, output, session){
     
     verts_<-left_join(verts_, h[c("TO", "inv_tot")], by=c("name"="TO"))
     
-    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
+    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
       setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
       addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1_h(), fillOpacity = .75, popup=pop_cont1_h(), 
                   highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -629,7 +631,7 @@ server<-function(input, output, session){
   
   map_i<-reactive({
     if(input$var_e=="Investment"){
-      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18)) %>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7)) %>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(), weight=.5, color="black", fillOpacity = .75, fillColor = pal2(),
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T),
@@ -702,7 +704,7 @@ server<-function(input, output, session){
       verts_$lon<-as.numeric(verts_$lon)
       verts_<-left_join(verts_, h[c("TO","IMF_cred")], by=c("name"="TO"))
       
-      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
+      leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -779,7 +781,7 @@ server<-function(input, output, session){
     verts_$lon<-as.numeric(verts_$lon)
     verts_<-left_join(verts_, h[c("TO","IMF_cred")], by=c("name"="TO"))
     
-    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 18))%>%
+    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
       setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
       addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2_h(), fillOpacity = .75, popup=pop_cont2_h(), 
                   highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
@@ -901,14 +903,14 @@ server<-function(input, output, session){
         plot_ly(data=filter(dat_c()@data, CONTINENT==input$view), x=~inv_tot, y=~dem_score, type="scatter", mode="markers", marker=list(color="#AA381E"),
                 hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT==input$view)$SOVEREIGNT, "<br>",
                                      "Chinese Investment: $", filter(dat_c()@data, CONTINENT==input$view)$inv_tot, "<br>",
-                                     "Liberal Democracy Score: ", filter(dat_c()@data, CONTINENT==input$view)$dem_score,"<extra></extra>"))%>%
-          layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
+                                     "Egalitarian Democracy Score: ", filter(dat_c()@data, CONTINENT==input$view)$dem_score,"<extra></extra>"))%>%
+          layout(title="Egalitarian Democracy",yaxis=list(title="Egalitarian Democracy Score"),xaxis=list(title="Investment from China"))
       }else{
         plot_ly(data=dat_c()@data, x=~inv_tot, y=~dem_score, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
                                      "Chinese Investment: $", dat_c()@data$inv_tot, "<br>",
-                                     "Liberal Democracy Score: ", dat_c()@data$dem_score,"<extra></extra>"))%>%
-          layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from China"))
+                                     "Egalitarian Democracy Score: ", dat_c()@data$dem_score,"<extra></extra>"))%>%
+          layout(title="Egalitarian Democracy",yaxis=list(title="Egalitarian Democracy Score"),xaxis=list(title="Investment from China"))
       }
     }else if(input$var_h=="Freedom of Expression"){
       if(!input$view %in% c("World", "")){
@@ -947,14 +949,14 @@ server<-function(input, output, session){
         plot_ly(data=filter(dat_i()@data, CONTINENT==input$view), x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", marker=list(color="#05358B"),
                 hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT==input$view)$SOVEREIGNT, "<br>",
                                      "IMF Investment: $", filter(dat_i()@data, CONTINENT==input$view)$IMF_cred, "<br>",
-                                     "Liberal Democracy Score: ", filter(dat_i()@data, CONTINENT==input$view)$dem_score,"<extra></extra>"))%>%
-          layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
+                                     "Egalitarian Democracy Score: ", filter(dat_i()@data, CONTINENT==input$view)$dem_score,"<extra></extra>"))%>%
+          layout(title="Egalitarian Democracy",yaxis=list(title="Egalitarian Democracy Score"),xaxis=list(title="Investment from IMF"))
       }else{
         plot_ly(data=dat_i()@data, x=~IMF_cred, y=~dem_score, type="scatter", mode="markers", color=~CONTINENT,
                 hovertemplate=paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
                                      "IMF Investment: $", dat_i()@data$IMF_cred, "<br>",
-                                     "Liberal Democracy Score: ", dat_i()@data$dem_score,"<extra></extra>"))%>%
-          layout(title="Liberal Democracy",yaxis=list(title="Liberal Democracy Score"),xaxis=list(title="Investment from IMF"))
+                                     "Egalitarian Democracy Score: ", dat_i()@data$dem_score,"<extra></extra>"))%>%
+          layout(title="Egalitarian Democracy",yaxis=list(title="Egalitarian Democracy Score"),xaxis=list(title="Investment from IMF"))
       }
     }else if(input$var_h=="Freedom of Expression"){
       if(!input$view %in% c("World", "")){
@@ -1140,7 +1142,7 @@ server<-function(input, output, session){
     dem[dem$country_name=="Sao Tome and Principe",]$country_name<-"Sao Tome"
     dem[dem$country_name=="North Macedonia",]$country_name<-"Macedonia"
     imf<-left_join(imf, dem, by=c("name"="country_name", "Year"="year"))
-    imf<-rename(imf, `Liberal Democracy Score`=v2x_libdem)
+    imf<-rename(imf, `Egalitarian Democracy Score`=v2x_egaldem)
     imf<-filter(imf, Year<2021)
     
     if(input$country_ %in% c("World","")){
@@ -1169,7 +1171,7 @@ server<-function(input, output, session){
       ggplot(rename(imf, `Credit from IMF`=IMF_cred), aes(x=Year))+
         geom_line(aes(y=`Credit from IMF`),color="#05358B")+
         geom_line(aes(y=`Gini Coefficient`), color="orange")+
-        geom_line(aes(y=`Liberal Democracy Score`*100), color="green")+
+        geom_line(aes(y=`Egalitarian Democracy Score`*100), color="green")+
         geom_point(aes(y=`Credit from IMF`), color="#05358B")+
         labs(x='Year', y='Aid in Billions ($)', title='IMF Aid, 2005-2021')+ 
         theme(
