@@ -14,15 +14,13 @@ suppressPackageStartupMessages(library(plotly))
 suppressPackageStartupMessages(library(MetBrewer))
 library(vdemdata)
 
-#leaflet(options = leafletOptions(minZoom = 10))
-
 chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
 chn_inv<-chn_inv %>%
   group_by(Year, Country) %>%
   mutate(inv_tot = sum(as.numeric(gsub("[[:punct:]]", "", Quantity.in.Millions))))
 chn_inv<-chn_inv %>%
   group_by(Country) %>%
-  mutate(projs=n())
+  mutate(projs=n(), country_tot=sum(inv_tot, na.rm = T))
 chn_inv$country2<-chn_inv$Country #for use later
 
 worldmap = readOGR(dsn="Nat_world_map", layer="ne_50m_admin_0_countries")
@@ -39,6 +37,9 @@ n<-WDI(indicator = "SN.ITK.DEFC.ZS", start=2005) #I named this stupidly. It's un
 imf<-WDI(indicator = "DT.DOD.DIMF.CD", country="all",start=2005, extra=F)
 imf<-filter(imf, !country %in% unique(imf$country)[1:49])
 imf<-rename(imf, Year=year, name=country, IMF_cred=DT.DOD.DIMF.CD)
+imf<-imf %>%
+  group_by(name) %>%
+  mutate(country_imf_tot= sum(IMF_cred, na.rm=T))
 unemp<-WDI(indicator="JI.UEM.1564.ZS", country="all", start=2005, extra=F)
 
 worldmap@data[worldmap@data$NAME=="United States of America",]$NAME<-"United States"
@@ -103,6 +104,7 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           column(3,  plotOutput("line_imf"), offset=1)),
                         br(),
                         br(),
+                        splitLayout(h3("Total Chinese Investment 2005-2020"), h3("Total IMF Investment 2005-2020")),
                         splitLayout(leafletOutput("leaf_c_inv"), leafletOutput("leaf_i_inv"))),
                tabPanel("Economics", 
                         fluidPage(
@@ -111,6 +113,10 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           selectInput("var_e","Select Variable to Map", choices=c("GDP Growth", "Gini", "Unemployment")),
                           radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c"), leafletOutput("leaf_i")),
+                          fluidRow(
+                            column(3, textOutput("cap1")),
+                            column(3, offset=6, textOutput("cap2"))
+                          ),
                           br(),
                           br(),
                           br(),
@@ -124,6 +130,10 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           selectInput("var_h","Select Variable to Map", choices=c("Undernourishment Prevelance" ,"Democracy Score", "Freedom of Expression")),
                           radioButtons("view_h", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c2"), leafletOutput("leaf_i2")),
+                          fluidRow(
+                            column(3, textOutput("cap3")),
+                            column(3, offset=6, textOutput("cap4"))
+                          ),
                           br(),
                           br(),
                           br(),
@@ -147,7 +157,6 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
 )
 
 server<-function(input, output, session){
-  leaflet(options = leafletOptions(minZoom = 10))
   chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
   
   chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
@@ -166,9 +175,14 @@ server<-function(input, output, session){
     updateSliderInput(session, "view", value=val)
   })
   
+  output$cap1<-renderText("Centroid radius corresponds to amount of Chinese investment")
+  output$cap2<-renderText("Centroid radius corresponds to amount of IMF Investment")
+  output$cap3<-renderText("Centroid radius corresponds to amount of Chinese investment")
+  output$cap4<-renderText("Centroid radius corresponds to amount of IMF Investment")
+  
   dat_c<-reactive({
     inv_y<-filter(chn_inv, Year==input$year)
-    inv_y<-inv_y[!duplicated(inv_y$Country),c("Country","inv_tot")]
+    inv_y<-inv_y[!duplicated(inv_y$Country),c("Country","inv_tot", "country_tot")]
     inv_y$inv_tot<-as.numeric(inv_y$inv_tot)
     
     worldmap@data$sov_low<-stringr::str_to_lower(worldmap@data$SOVEREIGNT)
@@ -265,7 +279,7 @@ server<-function(input, output, session){
   }) # End reactive making dat_c
   
   dat_i<-reactive({
-    inv_y<-filter(imf, Year==input$year)[c("name","IMF_cred")]
+    inv_y<-filter(imf, Year==input$year)[c("name","IMF_cred", "country_imf_tot")]
     
     worldmap@data[worldmap@data$NAME_EN=="Brunei",]$NAME_EN<-"Brunei Darussalam"
     worldmap@data[worldmap@data$NAME_EN==unique(worldmap@data$NAME_EN)[grep("Cura",worldmap@data$NAME_EN)],]$NAME_EN<-"Curacao"
@@ -508,22 +522,22 @@ server<-function(input, output, session){
   })
   
   pal_c_inv<-reactive({
-    j<-colorNumeric(palette="Reds", domain=dat_c()@data$inv_tot)
-    j(dat_c()@data$inv_tot)
+    j<-colorNumeric(palette="Reds", domain=dat_c()@data$country_tot)
+    j(dat_c()@data$country_tot)
   })
   pop_cont_c_inv<-reactive({
-    f<-dat_c()@data$inv_tot
+    f<-dat_c()@data$country_tot
     f[is.na(f)]<-0
     paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
            "Investment from China (Million USD): $", f)
   })
   
   pal_i_inv<-reactive({
-    j<-colorNumeric(palette="Blues", domain=dat_i()@data$IMF_cred)
-    j(dat_i()@data$IMF_cred)
+    j<-colorNumeric(palette="Blues", domain=dat_i()@data$country_imf_tot)
+    j(dat_i()@data$country_imf_tot)
   })
   pop_cont_i_inv<-reactive({
-    f<-dat_i()@data$IMF_cred
+    f<-dat_i()@data$country_imf_tot
     f[is.na(f)]<-0
     paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
            "IMF Investment (Million USD): $", round(f/1000000, 0))
@@ -535,7 +549,7 @@ server<-function(input, output, session){
       addPolygons(data=dat_c(), weight=.5, fillOpacity = .75, fillColor = pal_c_inv(), color="black",
                   highlightOptions=highlightOptions(color="white", weight = 2, bringToFront = T, sendToBack = T),
                   popup=pop_cont_c_inv(), label=dat_c()@data$SOVEREIGNT) %>%
-      addEasyButton(easyButton(icon="fa-globe", title="Home", onClick = JS("function(btn, map){ map.setZoom(1.4); }")))
+      addEasyButton(easyButton(icon="fa-globe", title="Home", onClick = JS("function(btn, map){ map.setView([40, 0], 1.4); }")))
   })
   
   map_i_inv<-reactive({
@@ -544,7 +558,7 @@ server<-function(input, output, session){
       addPolygons(data=dat_i(), weight=.5, fillOpacity = .75, fillColor = pal_i_inv(), color="black",
                   highlightOptions=highlightOptions(color="white", weight = 2, bringToFront = T, sendToBack = T),
                   popup=pop_cont_i_inv(), label=dat_i()@data$SOVEREIGNT) %>%
-      addEasyButton(easyButton(icon="fa-globe", title="Home", onClick = JS("function(btn, map){ map.setZoom(1.4); }")))
+      addEasyButton(easyButton(icon="fa-globe", title="Home", onClick = JS("function(btn, map){ map.setView([40, 0], 1.4); }")))
   })
   
   map_c<-reactive({
@@ -579,7 +593,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors = c("#8C510A", "#D8B365", "#F6E8C3","#F5F5F5", "#C7EAE5", "#5AB4AC",  "#01665E", "#808080"), labels=c("<-10", "-10 - -2.5", "-2.5 - 0", "0 - 2.5", "2.5 - 5", "5 - 10", ">10", "NA"), title="Annual GDP Growth Rate (%)") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
     }else if(input$var_e=="Gini"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -587,7 +601,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors = c("#A6611A","#DFC27D", "#F5F5F5", "#80CDC1",  "#018571", "#808080"), labels=c("<30", "30 - 35", "35 - 40", "40 - 50", ">50", "NA"), title="Gini Coefficient") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
     }else if(input$var_e=="Unemployment"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -595,7 +609,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1(), fillOpacity = .75, popup=pop_cont1(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors = c("#8C510A", "#D8B365","#F6E8C3","#F5F5F5", "C7EAE5", "#5AB4AC",  "#01665E", "#808080"), labels=c("<3", "3 - 4.5", "4.5 - 7", "7 - 10", "10-12", "12-20", ">20", "NA"), title="Unemployment Rate (%)") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
     }
     
@@ -634,7 +648,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1_h(), fillOpacity = .75, popup=pop_cont1_h(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors=c("#8C510A","#D8B365", "#F6E8C3", "#F5F5F5", "#C7EAE5", "#5AB4AC", "#01665E", "#808080"), labels=c("<.05", ".05 - .1", ".1 - .2", ".2 - .3", ".3 - .5", ".5 - .7", ".7 - .9", "NA"), title="Egalitarian Democracy Score") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
     }else if(input$var_h=="Undernourishment Prevelance"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -642,7 +656,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1_h(), fillOpacity = .75, popup=pop_cont1_h(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors=c("#8C510A","#BF812D", "#DFC27D", "#F6E8C3", "#C7EAE5", "#80CDC1", "#35978F", "#01665E", "#808080"), labels=c("<3.5", "3.5 - 5", "5 - 7", "7 - 11", "11 - 15", "15 - 20", "20 - 30",">30", "NA"), title="Undernourishment Rate (%)") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
     }else if(input$var_h=="Freedom of Expression"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -650,7 +664,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1_h(), fillOpacity = .75, popup=pop_cont1_h(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors=c("#8C510A","#BF812D", "#DFC27D", "#F6E8C3", "#C7EAE5", "#80CDC1", "#35978F", "#01665E", "#808080"), labels=c("<.05", ".05 - .15", ".15 - .25", ".25 - .4", ".4 - .6", ".6 - .75", ".75 - .9",">.9", "NA"), title="Freedom of Expression Score") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
     }
   })
@@ -728,7 +742,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors = c("#8C510A", "#D8B365", "#F6E8C3","#F5F5F5", "#C7EAE5", "#5AB4AC",  "#01665E", "#808080"), labels=c("<-10", "-10 - -2.5", "-2.5 - 0", "0 - 2.5", "2.5 - 5", "5 - 10", ">10", "NA"), title="Annual GDP Growth Rate (%)") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
     }else if(input$var_e=="Gini"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -736,7 +750,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors = c("#A6611A","#DFC27D", "#F5F5F5", "#80CDC1",  "#018571", "#808080"), labels=c("<30", "30 - 35", "35 - 40", "40 - 50", ">50", "NA"), title="Gini Coefficient") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
     }else if(input$var_e=="Unemployment"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -744,7 +758,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2(), fillOpacity = .75, popup=pop_cont2(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors = c("#8C510A", "#D8B365","#F6E8C3","#F5F5F5", "C7EAE5", "#5AB4AC",  "#01665E", "#808080"), labels=c("<3", "3 - 4.5", "4.5 - 7", "7 - 10", "10-12", "12-20", ">20", "NA"), title="Unemployment Rate (%)") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
     }
     
@@ -823,7 +837,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2_h(), fillOpacity = .75, popup=pop_cont2_h(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors=c("#8C510A","#D8B365", "#F6E8C3", "#F5F5F5", "#C7EAE5", "#5AB4AC", "#01665E", "#808080"), labels=c("<.05", ".05 - .1", ".1 - .2", ".2 - .3", ".3 - .5", ".5 - .7", ".7 - .9", "NA"), title="Egalitarian Democracy Score") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
     }else if(input$var_h=="Undernourishment Prevelance"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -831,7 +845,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2_h(), fillOpacity = .75, popup=pop_cont2_h(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors=c("#8C510A","#BF812D", "#DFC27D", "#F6E8C3", "#C7EAE5", "#80CDC1", "#35978F", "#01665E", "#808080"), labels=c("<3.5", "3.5 - 5", "5 - 7", "7 - 11", "11 - 15", "15 - 20", "20 - 30",">30", "NA"), title="Undernourishment Rate (%)") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
     }else if(input$var_h=="Freedom of Expression"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
@@ -839,7 +853,7 @@ server<-function(input, output, session){
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2_h(), fillOpacity = .75, popup=pop_cont2_h(), 
                     highlightOptions = highlightOptions(color="white", weight=2, bringToFront = T, sendToBack = T), label=worldmap@data$SOVEREIGNT) %>%
         addLegend(colors=c("#8C510A","#BF812D", "#DFC27D", "#F6E8C3", "#C7EAE5", "#80CDC1", "#35978F", "#01665E", "#808080"), labels=c("<.05", ".05 - .15", ".15 - .25", ".25 - .4", ".4 - .6", ".6 - .75", ".75 - .9",">.9", "NA"), title="Freedom of Expression Score") %>%
-        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setZoom(1.4); }"))) %>%
+        addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
     }
     
@@ -1039,7 +1053,7 @@ server<-function(input, output, session){
   output$leaf_i<-renderLeaflet(map_i())
   output$leaf_i2<-renderLeaflet(map_i2())
   
-  output$blurb<-renderText("Unlike what many other countries do, China is not known to report its aid projects or and overseas spending to international initiatives voluntarily. Enter Aid Data, a research collaborative at the College of William & Mary. Theyâve recently launched a comprehensive dataset tracking Chinese spending to different regions and sectors globally. According to their reports, 300 Chinese governmental organizations contributed a total reported $843 billion dollars worth of spending to over 13,000 projects, tracked in the last twenty years. This Chinese investment, rivaling the United States' aid spending in that time-span has drawn international attention, especially since much of this money goes to countries like Russia and Angola that are oil-rich and hence, potentially valuable allies.  This project seeks to visually compare and contrast the countries receiving aid from China and the IMF across different indices spanning economic development, human rights and political health. We hypothesize that countries receiving their aid from China -- who unlike the IMF has less stringent contingencies -- perform very differently than those getting their aid from other organizations and countries, specifically through the IMF.")
+  output$blurb<-renderText("Unlike what many other countries do, China is not known to report its aid projects or and overseas spending to international initiatives voluntarily. Enter Aid Data, a research collaborative at the College of William & Mary. They’ve recently launched a comprehensive dataset tracking Chinese spending to different regions and sectors globally. According to their reports, 300 Chinese governmental organizations contributed a total reported $843 billion dollars worth of spending to over 13,000 projects, tracked in the last twenty years. This Chinese investment, rivaling the United States' aid spending in that time-span has drawn international attention, especially since much of this money goes to countries like Russia and Angola that are oil-rich and hence, potentially valuable allies.  This project seeks to visually compare and contrast the countries receiving aid from China and the IMF across different indices spanning economic development, human rights and political health. We hypothesize that countries receiving their aid from China -- who unlike the IMF has less stringent contingencies -- perform very differently than those getting their aid from other organizations and countries, specifically through the IMF.")
   
   chn_inv<-chn_inv %>%
     group_by(Year) %>%
@@ -1047,7 +1061,7 @@ server<-function(input, output, session){
   
   output$line_c<-renderPlot({
     ggplot()+
-      geom_line(data=filter(chn_inv[!duplicated(chn_inv$Year),], Year<2021), aes(x=Year,y=ann_tot/10000), color='darkred', size=2)+
+      geom_line(data=filter(chn_inv[!duplicated(chn_inv$Year),], Year<2021), aes(x=Year,y=ann_tot/10000), color='darkred', size=1.2)+
       labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2020')+
       theme(
         panel.border = element_blank(),  
@@ -1057,7 +1071,7 @@ server<-function(input, output, session){
         axis.line = element_line(colour = "black"),
         plot.title = element_text(hjust = 0.5), 
         legend.position = 'none')
-  }, width=250, height=250
+  }#, width=250, height=250
   
   )
   
@@ -1067,7 +1081,7 @@ server<-function(input, output, session){
   
   output$line_imf<-renderPlot({
     ggplot()+
-      geom_line(data=filter(imf[!duplicated(imf$Year),], Year<2021), aes(x=Year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=2)+
+      geom_line(data=filter(imf[!duplicated(imf$Year),], Year<2021), aes(x=Year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=1.2)+
       labs(x='Year', y='Total Aid in Billions ($)', title='Total IMF Aid, 1990-2020')+
       theme(
         panel.border = element_blank(),  
@@ -1077,7 +1091,7 @@ server<-function(input, output, session){
         axis.line = element_line(colour = "black"),
         plot.title = element_text(hjust = 0.5), 
         legend.position = 'none')
-  }, width=250, height=250
+  }#, width=250, height=250
   )
   
   sec<-reactive({
