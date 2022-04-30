@@ -1229,7 +1229,7 @@ server<-function(input, output, session){
   output$leaf_i<-renderLeaflet(map_i())
   output$leaf_i2<-renderLeaflet(map_i2())
   
-  output$blurb<-renderText("Here's a blurb with lots and lots of text. I want to see how the allignment is and how the page looks with a much longer blurb than the one i originally did which just said 'here's a blurb' and was a little bit too far to the left but maybe that was just because it was too short")
+  output$blurb<-renderText("Unlike what many other countries do, China is not known to report its aid projects or and overseas spending to international initiatives voluntarily. Enter Aid Data, a research collaborative at the College of William & Mary. They’ve recently launched a comprehensive dataset tracking Chinese spending to different regions and sectors globally. According to their reports, 300 Chinese governmental organizations contributed a total reported $843 billion dollars worth of spending to over 13,000 projects, tracked in the last twenty years. This Chinese investment, rivaling the United States' aid spending in that time-span has drawn international attention, especially since much of this money goes to countries like Russia and Angola that are oil-rich and hence, potentially valuable allies.  This project seeks to visually compare and contrast the countries receiving aid from China and the IMF across different indices spanning economic development, human rights and political health. We hypothesize that countries receiving their aid from China -- who unlike the IMF has less stringent contingencies -- perform very differently than those getting their aid from other organizations and countries, specifically through the IMF.")
   
   chn_inv<-chn_inv %>%
     group_by(Year) %>%
