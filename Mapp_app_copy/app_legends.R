@@ -22,6 +22,7 @@ chn_inv<-chn_inv %>%
   group_by(Country) %>%
   mutate(projs=n(), country_tot=sum(inv_tot, na.rm = T))
 chn_inv$country2<-chn_inv$Country #for use later
+chn_inv[chn_inv$Region=="Arab Middle East and North Africa",]$Region<-"MENA"
 
 worldmap = readOGR(dsn="Nat_world_map", layer="ne_50m_admin_0_countries")
 worldmap@data[worldmap@data$CONTINENT=="Oceania",]$CONTINENT<-"Australiasia"
@@ -97,15 +98,31 @@ worldmap@data[worldmap@data$NAME=="Maldives",]$CONTINENT<-"Asia"
 
 ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                tabPanel("Home",
-                        titlePanel(h1("Welcome", align = "center")),
-                        fluidRow(
-                          column(3, plotOutput("line_c")),
-                          column(4, textOutput("blurb"), offset=1),
-                          column(3,  plotOutput("line_imf"), offset=1)),
-                        br(),
-                        br(),
-                        splitLayout(h3("Total Chinese Investment 2005-2020"), h3("Total IMF Investment 2005-2020")),
-                        splitLayout(leafletOutput("leaf_c_inv"), leafletOutput("leaf_i_inv"))),
+                        titlePanel(h1("Let's Change This to Something Better", align = "center")),
+                        sidebarLayout(
+                          sidebarPanel(width= 7, tags$style(".well {background-color:#FFFFFF;}"),
+                                                   verticalLayout(textOutput("title1"),
+                                                                  tags$head(tags$style("#title1{font-size: 24px}")),
+                                                                  leafletOutput("leaf_c_inv"), 
+                                                                  br(), 
+                                                                  textOutput("title2"),
+                                                                  tags$head(tags$style("#title2{font-size: 24px}")),
+                                                                  leafletOutput("leaf_i_inv")),
+                          tags$style(tableHTML::make_css(list('.well', 'border-width', '0px')))),
+                          mainPanel(width=4, br(), textOutput("blurb"),
+                                    tags$head(tags$style("#blurb{font-size: 17px}"))))),
+                         # column(3, plotOutput("line_c")),
+                          #column(4, textOutput("blurb"), offset=4)),
+                        #  column(3,  plotOutput("line_imf"), offset=1)),
+                        # br(),
+                        # br()),
+                        #splitLayout(h3("Total Chinese Investment 2005-2020"), h3("Total IMF Investment 2005-2020")),
+                        #splitLayout(leafletOutput("leaf_c_inv"), leafletOutput("leaf_i_inv"))),
+               # tabPanel("Summary Info",
+               #          splitLayout(h3("Total Chinese Investment 2005-2020")),
+               #          splitLayout(leafletOutput("leaf_c_inv"), plotOutput("line_c")),
+               #          splitLayout(h3(""), h3("Total IMF Investment 2005-2020")),
+               #          splitLayout(plotOutput("line_imf"), leafletOutput("leaf_i_inv"))),
                tabPanel("Economics", 
                         fluidPage(
                           tags$h1("Economic Indicators"),
@@ -157,6 +174,8 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
 )
 
 server<-function(input, output, session){
+  output$title1<-renderText("Total Chinese Investment 2005-2020")
+  output$title2<-renderText("Total IMF Investment 2005-2020")
   chn_inv$Country<-stringr::str_to_lower(chn_inv$Country)
   
   chn_inv[chn_inv$Country=="britain",]$Country<-"uk"
@@ -1059,40 +1078,40 @@ server<-function(input, output, session){
     group_by(Year) %>%
     mutate(ann_tot = sum(as.numeric(inv_tot)))
   
-  output$line_c<-renderPlot({
-    ggplot()+
-      geom_line(data=filter(chn_inv[!duplicated(chn_inv$Year),], Year<2021), aes(x=Year,y=ann_tot/10000), color='darkred', size=1.2)+
-      labs(x='Year', y='Total Aid in Billions ($)', title='Total Chinese Aid, 2005-2020')+
-      theme(
-        panel.border = element_blank(),  
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        axis.line = element_line(colour = "black"),
-        plot.title = element_text(hjust = 0.5), 
-        legend.position = 'none')
-  }#, width=250, height=250
+  # output$line_c<-renderPlot({
+  #   ggplot()+
+  #     geom_line(data=filter(chn_inv[!duplicated(chn_inv$Year),], Year<2021), aes(x=Year,y=ann_tot/10000), color='darkred', size=1.2)+
+  #     labs(x='Year', y='Total Investment in Billions ($)', title='Total Chinese Investment, 2005-2020')+
+  #     theme(
+  #       panel.border = element_blank(),  
+  #       panel.grid.major = element_blank(),
+  #       panel.grid.minor = element_blank(),
+  #       panel.background = element_blank(),
+  #       axis.line = element_line(colour = "black"),
+  #       plot.title = element_text(hjust = 0.5), 
+  #       legend.position = 'none')
+  # }#, width=250, height=250
+  # 
+  # )
   
-  )
+  # imf<-imf %>%
+  #   group_by(Year) %>%
+  #   mutate(ann_imf=sum(as.numeric(IMF_cred),na.rm=T))
   
-  imf<-imf %>%
-    group_by(Year) %>%
-    mutate(ann_imf=sum(as.numeric(IMF_cred),na.rm=T))
-  
-  output$line_imf<-renderPlot({
-    ggplot()+
-      geom_line(data=filter(imf[!duplicated(imf$Year),], Year<2021), aes(x=Year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=1.2)+
-      labs(x='Year', y='Total Aid in Billions ($)', title='Total IMF Aid, 1990-2020')+
-      theme(
-        panel.border = element_blank(),  
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        axis.line = element_line(colour = "black"),
-        plot.title = element_text(hjust = 0.5), 
-        legend.position = 'none')
-  }#, width=250, height=250
-  )
+  # output$line_imf<-renderPlot({
+  #   ggplot()+
+  #     geom_line(data=filter(imf[!duplicated(imf$Year),], Year<2021), aes(x=Year,y=ann_imf/10000000000, lwd=1), color='dodgerblue4', size=1.2)+
+  #     labs(x='Year', y='Total Investment in Billions ($)', title='Total Investment Aid, 1990-2020')+
+  #     theme(
+  #       panel.border = element_blank(),  
+  #       panel.grid.major = element_blank(),
+  #       panel.grid.minor = element_blank(),
+  #       panel.background = element_blank(),
+  #       axis.line = element_line(colour = "black"),
+  #       plot.title = element_text(hjust = 0.5), 
+  #       legend.position = 'none')
+  # }#, width=250, height=250
+  # )
   
   sec<-reactive({
     if(input$country_=="World" | input$country_==""){
@@ -1137,7 +1156,7 @@ server<-function(input, output, session){
       ggplot(tot_reg, aes(x=Year, y=`Annual Total Investment`, color=Region))+
         geom_line()+
         geom_point()+
-        labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid by Region, 2005-2021')+
+        labs(x='Year', y='Investment in Billions ($)', title='Chinese Investment by Region, 2005-2021')+
         theme(
           panel.border = element_blank(),  
           panel.grid.major = element_blank(),
@@ -1158,7 +1177,7 @@ server<-function(input, output, session){
       ggplot(tot_reg, aes(x=Year, y=`Annual Total Investment`))+
         geom_line(color="#AA381E")+
         geom_point(color="#AA381E")+
-        labs(x='Year', y='Aid in Billions ($)', title='Chinese Aid, 2005-2021')+
+        labs(x='Year', y='Investment in Billions ($)', title='Chinese Investment, 2005-2021')+
         theme(
           panel.border = element_blank(),  
           panel.grid.major = element_blank(),
@@ -1222,7 +1241,7 @@ server<-function(input, output, session){
       ggplot(imf_, aes(x=Year, y=`Annual Total`, color=Region))+
         geom_line()+
         geom_point()+
-        labs(x='Year', y='Aid in Billions ($)', title='IMF Aid by Region, 2005-2021')+
+        labs(x='Year', y='Investment in Billions ($)', title='IMF Investment by Region, 2005-2021')+
         theme(
           panel.border = element_blank(),  
           panel.grid.major = element_blank(),
@@ -1242,7 +1261,7 @@ server<-function(input, output, session){
         #geom_line(aes(y=`Gini Coefficient`), color="orange")+
         #geom_line(aes(y=`Egalitarian Democracy Score`*100), color="green")+
         geom_point(color="#05358B")+
-        labs(x='Year', y='Aid in Billions ($)', title='IMF Aid, 2005-2021')+ 
+        labs(x='Year', y='Investment in Billions ($)', title='IMF Investment, 2005-2021')+ 
         theme(
           panel.border = element_blank(),  
           panel.grid.major = element_blank(),
