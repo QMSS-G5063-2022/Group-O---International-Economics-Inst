@@ -20,14 +20,10 @@ joined_data <- read.csv("alldata_abridged.csv") %>% rename(Year = 1) %>%
   mutate(rights_index = round(rights_index, 2)) %>%
   mutate(egal_dem = round(egal_dem, 2))
 hist_data <- joined_data %>% select(1:3, 5:9) %>%
-  rename(Country = 2, `Human Rights Index` = 3, `Democracy Index` = 4,
+  rename(Country = 2, `Rights Index` = 3, `Dem. Index` = 4,
          Gini = 5, `Poverty Rate` = 6, `IMF Investment` = 7, 
          `China Investment` = 8)
-now_data <- joined_data %>% filter(Year == 2018) %>%
-  select(1:9) %>%
-  rename(Country = 2, `Human Rights Index` = 3, `Democracy Index` = 4,
-         Gini = 5, `Poverty Rate` = 6, `IMF Investment` = 7, 
-         `China Investment` = 8)
+now_data <- hist_data %>% filter(Year == 2018)
 
 chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
 chn_inv<-chn_inv %>%
@@ -180,6 +176,14 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           br(),
                           DTOutput("data_table"),
                           br(),
+                          br(),
+                          titlePanel("Data Sources"),
+                          br(),
+                          htmlOutput("sources"),
+                          br(),
+                          titlePanel("Further Data"),
+                          br(),
+                          htmlOutput("further_reading"),
                           br()
                         ))
 )
@@ -1296,6 +1300,25 @@ server<-function(input, output, session){
       hist_data
     }
   )
+    
+  output$sources <- renderUI({
+    line1 <- "<b>China Global Investment Tracker</b> https://www.aei.org/china-global-investment-tracker/"
+    line2 <- "<b>World Development Indicators (World Bank data)</b> https://cran.r-project.org/web/packages/WDI/index.html"
+    line3 <- "<b>V-Dem Institute</b> https://github.com/vdeminstitute"
+    line4 <- "<b>Maps</b> https://www.naturalearthdata.com/"
+    HTML(paste(line1, line2, line3, line4,
+               sep = '<br/><br/>'))
+  })
+    
+  output$further_reading <- renderUI({
+    line1 <- "<b>AidData Research Lab</b> https://www.aiddata.org/datasets"
+    line2 <- "<b>imfr - access IMF's API</b> https://cran.r-project.org/web/packages/imfr/index.html"
+    line3 <- "<b>John Hopkins SAIS China-Africa Research Initiative</b> http://www.sais-cari.org/chinese-investment-in-africa"
+    line4 <- "<b>Human Rights Scores Dataverse</b> https://dataverse.harvard.edu/dataverse/HumanRightsScores"
+    line5 <- "<b>Press Freedom from RSF</b> https://rsf.org/en/index"
+    HTML(paste(line1, line2, line3, line4, line5,
+               sep = '<br/><br/>'))
+  })
   
 } #This one ends server
 
