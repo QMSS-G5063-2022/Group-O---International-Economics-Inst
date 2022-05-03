@@ -12,7 +12,21 @@ suppressPackageStartupMessages(library(maps))
 suppressPackageStartupMessages(library(igraph))
 suppressPackageStartupMessages(library(plotly))
 suppressPackageStartupMessages(library(MetBrewer))
+suppressPackageStartupMessages(library(DT))
 library(vdemdata)
+
+joined_data <- read.csv("alldata_abridged.csv") %>% rename(Year = 1) %>%
+  mutate(rights_index = round(rights_index, 2)) %>%
+  mutate(egal_dem = round(egal_dem, 2))
+hist_data <- joined_data %>% select(1:3, 5:9) %>%
+  rename(Country = 2, `Human Rights Index` = 3, `Democracy Index` = 4,
+         Gini = 5, `Poverty Rate` = 6, `IMF Investment` = 7, 
+         `China Investment` = 8)
+now_data <- joined_data %>% filter(Year == 2018) %>%
+  select(1:9) %>%
+  rename(Country = 2, `Human Rights Index` = 3, `Democracy Index` = 4,
+         Gini = 5, `Poverty Rate` = 6, `IMF Investment` = 7, 
+         `China Investment` = 8)
 
 chn_inv<-read.csv('China-Global-Investment-Tracker-2021-Fall-FINAL-2022.2.21-update.up.csv')
 chn_inv<-chn_inv %>%
@@ -169,6 +183,14 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           br(),
                           br(),
                           splitLayout(plotlyOutput("line_out"), plotlyOutput("line_out_imf")),
+                          br()
+                        )),
+               tabPanel("Appendix",
+                        fluidPage(
+                          radioButtons("time", "Selected Data", choices=c("2005-2020", "2018"), selected="2005-2020", inline=T),
+                          br(),
+                          DTOutput("data_table"),
+                          br(),
                           br()
                         ))
 )
@@ -1276,6 +1298,15 @@ server<-function(input, output, session){
   })
   
   output$line_out_imf<-renderPlotly(ggplotly(imf_liney_line()))
+  
+  output$data_table <- renderDT(
+    if(input$time == "2018"){
+      now_data
+    }
+    else{
+      hist_data
+    }
+  )
   
 } #This one ends server
 
