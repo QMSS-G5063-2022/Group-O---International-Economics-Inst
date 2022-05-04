@@ -109,7 +109,7 @@ worldmap@data[worldmap@data$NAME=="Maldives",]$CONTINENT<-"Asia"
 
 ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                tabPanel("Home",
-                        titlePanel(h1("Let's Change This to Something Better", align = "center")),
+                        titlePanel(h1("Does the Source of International Investment Matter?", align = "center")),
                         sidebarLayout(
                           sidebarPanel(width= 7, tags$style(".well {background-color:#FFFFFF;}"),
                                                    verticalLayout(textOutput("title1"),
@@ -125,6 +125,8 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                tabPanel("Economics", 
                         fluidPage(
                           tags$h1("Economic Indicators"),
+                          htmlOutput("econ_text"),
+                          br(),
                           sliderInput("year", label="Select Year", min=2005, max=2020, value=2018, sep=""),
                           selectInput("var_e","Select Variable to Map", choices=c("GDP Growth", "Gini", "Unemployment")),
                           radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
@@ -142,6 +144,8 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                tabPanel("Human Rights",
                         fluidPage(
                           tags$h1("Human Rights Indicators"),
+                          textOutput("HR_text"),
+                          br(),
                           sliderInput("year_h", label="Select Year", min=2005, max=2020, value=2018, sep=""),
                           selectInput("var_h","Select Variable to Map", choices=c("Undernourishment Prevelance" ,"Democracy Score", "Freedom of Expression")),
                           radioButtons("view_h", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
@@ -158,6 +162,8 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                         )),
                tabPanel("Country Details",
                         fluidPage(
+                          textOutput("details_text"),
+                          br(),
                           selectizeInput("country_", "Select Country", multiple=F, choices=c("World", unique(filter(chn_inv, projs>=5)$Country)), selected="World",
                                          options=list(create=F, placeholder="", maxitems=1,
                                                       onDropdownOpen = I("function($dropdown) {if (!this.lastQuery.length) {this.close(); this.settings.openOnFocus = false;}}"),
@@ -180,6 +186,10 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           titlePanel("Data Sources"),
                           br(),
                           htmlOutput("sources"),
+                          br(),
+                          titlePanel("Literature Sources"),
+                          br(),
+                          htmlOutput("literature"),
                           br(),
                           titlePanel("Further Data"),
                           br(),
@@ -1309,6 +1319,18 @@ server<-function(input, output, session){
     HTML(paste(line1, line2, line3, line4,
                sep = '<br/><br/>'))
   })
+  
+  output$literature <- renderUI({
+    cite1 <- "Adisu, Kinfu, Thomas Sharkey, and Sam C. Okoroafo. 'The impact of Chinese investment in Africa.' <em>International Journal of Business and Management</em> 5.9 (2010): 3."
+    cite6 <- "Blanton, Robert G., Shannon Lindsey Blanton, and Dursun Peksen. 'The impact of IMF and World Bank programs on labor rights.' <em>Political Research Quarterly</em> 68.2 (2015): 324-336."
+    cite2 <- "Lu, Kelan, and Robert G. Blanton. 'Rights, institutions, and Chinese investment abroad.' <em>The Social Science Journal</em> (2020): 1-19."
+    cite3 <- "Clift, Ben. <em>The IMF and the Politics of Austerity in the Wake of the Global Financial Crisis.</em> Oxford University Press, 2018."
+    cite4 <- "Rickard, Stephanie J., and Teri L. Caraway. 'nternational demands for austerity: Examining the impact of the IMF on the public sector.' <em>The Review of International Organizations</em> 14.1 (2019): 35-57."
+    cite5 <- "Petras, James, and Howard Brill. 'The IMF, austerity and the state in Latin America.' <em>Third World Quarterly</em> 8.2 (1986): 425-448."
+    HTML(paste(cite1, cite6, cite3, cite2, cite5, cite4,
+               sep = '<br/><br/>'))
+
+  })
     
   output$further_reading <- renderUI({
     line1 <- "<b>AidData Research Lab</b> https://www.aiddata.org/datasets"
@@ -1320,6 +1342,19 @@ server<-function(input, output, session){
                sep = '<br/><br/>'))
   })
   
+  output$econ_text<-renderUI({
+    imf_line<-"The International Monetary Fund is tasked with supporting member countries to grow and succeed sustainably through economic investment and extentions of credit. However, investment often comes with requirements from the receiving country for an established set of economic policies, often called the austerity package. These requirements have long been questioned by researchers and likely have an impact on the subsequent economic trajectory of the country (Clift, 2018; Rickard, 2019; Petras, 1986)." 
+    china_line<-"Investment from China, however, largely is not conditioned on domestic economic policies of recipient countries, though its intentions have still been called into question as generally political rather than in the interest of the country or its people. The differences in requirements may be expected to lead to notably different economic outcomes for countries receiving investment from the IMF or China. However, the data below do not seem to clearly establish a notable difference, potentially meaning that the source of investment may not be as significantly predictive of economic success as expected or hoped by some. Indeed, it may be the case that investment from both are contingent on various behaviors, both economic and political, despite the presentation of the IMF as having only the receiving country's success as its goal."
+    HTML(paste(imf_line, china_line, sep="<br/><br/>"))
+  })
+  
+  output$HR_text<-renderText({
+    "Despite the general goal of reducing poverty, human rights and conditions for members of low socioeconomic classes in countries receiving IMF aid have been arguably under-emphasized in the conditions of IMF investment (Blanton, 2015). Meanwhile, Chinese investment may potentially be strategically made in countries that do not meed the requirements of the IMF, potentially allowing countries with corrupt and oppressive governments a source of investment, to the detriment of humanitarian conditions (Lu, 2020; Adisu, 2010). Again, however, below you can explore the data of three measures of humanitarian conditions/human rights, measured against IMF and Chinese investment. No distinct pattern arises, potentially suggesting that there may not be a distinctly beneficial and a distinctly harmful source of investment."
+  })
+  
+  output$details_text<-renderText({
+    "Here, you can find more specific information regarding investment from the IMF and China over time either globally or for an individual country."
+  })
 } #This one ends server
 
 shinyApp(ui, server)
