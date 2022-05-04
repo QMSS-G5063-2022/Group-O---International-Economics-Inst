@@ -1,0 +1,19 @@
+---
+title: "Untitled"
+author: "John Marion"
+date: "5/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(vdemdata)
+library(dplyr)
+
+dem<-filter(vdem[c("country_name","country_text_id","year","v2x_egaldem", "v2x_freexp")],year>2004)
+write.csv(dem, "dem_data.csv")
+```
+

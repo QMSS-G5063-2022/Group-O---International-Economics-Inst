@@ -13,8 +13,10 @@ suppressPackageStartupMessages(library(igraph))
 suppressPackageStartupMessages(library(plotly))
 suppressPackageStartupMessages(library(MetBrewer))
 suppressPackageStartupMessages(library(DT))
-library(vdemdata)
-
+# library(devtools)
+# devtools::install_github("vdeminstitute/vdemdata")
+# 
+# library(vdemdata)
 
 joined_data <- read.csv("alldata_abridged.csv") %>% rename(Year = 1) %>%
   mutate(rights_index = round(rights_index, 2)) %>%
@@ -41,7 +43,7 @@ worldmap@data[worldmap@data$CONTINENT=="Oceania",]$CONTINENT<-"Australiasia"
 rawnodes<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_FREQ.csv')
 rawedges<-read.csv('http://www.kateto.net/wordpress/wp-content/uploads/2015/06/Country_terms_COOC.csv')
 
-dem<-filter(vdem[c("country_name","country_text_id","year","v2x_egaldem", "v2x_freexp")],year>2004)
+dem<-read.csv("dem_data.csv")
 
 gdp<-WDI(country="all",indicator="NY.GDP.MKTP.KD.ZG", start=2005, extra=F)
 gini<-WDI(country="all",indicator="SI.POV.GINI", start=2005, extra=F)
@@ -121,7 +123,9 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                                                                   leafletOutput("leaf_i_inv")),
                           tags$style(tableHTML::make_css(list('.well', 'border-width', '0px')))),
                           mainPanel(width=4, br(), textOutput("blurb"),
-                                    tags$head(tags$style("#blurb{font-size: 17px}"))))),
+                                    tags$head(tags$style("#blurb{font-size: 17px}")))),
+                        br(),
+                        br()),
                tabPanel("Economics", 
                         fluidPage(
                           tags$h1("Economic Indicators"),
