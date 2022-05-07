@@ -132,8 +132,10 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           htmlOutput("econ_text"),
                           br(),
                           sliderInput("year", label="Select Year", min=2005, max=2020, value=2018, sep=""),
-                          selectInput("var_e","Select Variable to Map", choices=c("GDP Growth", "Gini", "Unemployment")),
-                          radioButtons("view", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
+                          selectInput("var_e","Select Variable to Map", choices=c("GDP Growth", "Inequality", "Unemployment")),
+                          textOutput("econ_var_desc"),
+                          br(),
+                          radioButtons("view", "Select Continent View", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c"), leafletOutput("leaf_i")),
                           fluidRow(
                             column(3, textOutput("cap1")),
@@ -152,7 +154,9 @@ ui<-navbarPage("", theme = bs_theme(bootswatch = "flatly"),
                           br(),
                           sliderInput("year_h", label="Select Year", min=2005, max=2020, value=2018, sep=""),
                           selectInput("var_h","Select Variable to Map", choices=c("Undernourishment Prevelance" ,"Democracy Score", "Freedom of Expression")),
-                          radioButtons("view_h", "Select", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
+                          textOutput("hr_var_desc"),
+                          br(),
+                          radioButtons("view_h", "Select Continent View", choices=c("World","Africa","Asia","Australiasia","Europe","North America","South America"), selected="World", inline=T),
                           splitLayout(leafletOutput("leaf_c2"), leafletOutput("leaf_i2")),
                           fluidRow(
                             column(3, textOutput("cap3")),
@@ -257,7 +261,7 @@ server<-function(input, output, session){
       
       gdp_y<-filter(gdp, Year==input$year)
       worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       gini<-filter(gini, !country %in% unique(gini$country)[1:49])
       gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
       gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
@@ -347,7 +351,7 @@ server<-function(input, output, session){
       
       gdp_y<-filter(gdp, Year==input$year)
       worldmap@data<-left_join(worldmap@data, gdp_y, by=c("NAME_EN"="name"))
-    } else if(input$var_e=="Gini"){
+    } else if(input$var_e=="Inequality"){
       gini<-filter(gini, !country %in% unique(gini$country)[1:49])
       gini<-rename(gini, Year=year, name=country, gini=`SI.POV.GINI`)
       gini$gini_fac<-ifelse(30>=gini$gini, 1, ifelse(gini$gini>30 & gini$gini<=35, 2,
@@ -420,7 +424,7 @@ server<-function(input, output, session){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from China (Million USD): $", f, "<br>",
              "GDP Growth Rate: ", dat_c()@data$gdp_growth, "%")
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from China (Million USD): $", f, "<br>",
              "Gini Coefficient: ", dat_c()@data$gini)
@@ -458,7 +462,7 @@ server<-function(input, output, session){
       paste0("Country: ", dat_i()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
              "GDP Growth Rate: ", dat_c()@data$gdp_growth, "%")
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       paste0("Country: ", dat_c()@data$SOVEREIGNT, "<br>",
              "Investment from IMF (Million USD): $", round(f/1000000, 0), "<br>",
              "Gini Coefficient: ", dat_i()@data$gini)
@@ -490,7 +494,7 @@ server<-function(input, output, session){
     if(input$var_e=="GDP Growth"){
       j<-colorFactor(palette="BrBG", domain=dat_c()@data$growth_fac)
       j(dat_c()@data$growth_fac)
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       j<-colorFactor(palette="BrBG", domain=dat_c()@data$gini_fac)
       j(dat_c()@data$gini_fac)
     }else if(input$var_e=="Unemployment"){
@@ -518,7 +522,7 @@ server<-function(input, output, session){
     }else if(input$var_e=="GDP Growth"){
       j<-colorFactor(palette="BrBG", domain=dat_i()@data$growth_fac)
       j(dat_i()@data$growth_fac)
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       j<-colorFactor(palette="BrBG", domain=dat_i()@data$gini_fac)
       j(dat_i()@data$gini_fac)
     }else if(input$var_e=="Unemployment"){
@@ -643,7 +647,7 @@ server<-function(input, output, session){
         addLegend(colors = c("#8C510A", "#D8B365", "#F6E8C3","#F5F5F5", "#C7EAE5", "#5AB4AC",  "#01665E", "#808080"), labels=c("<-10", "-10 - -2.5", "-2.5 - 0", "0 - 2.5", "2.5 - 5", "5 - 10", ">10", "NA"), title="Annual GDP Growth Rate (%)") %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "red", color="red", weight=2, radius=~inv_tot*10, lat = ~lat, lng = ~lon)
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_c(),weight=.5, color="black", fillColor=pal1(), fillOpacity = .75, popup=pop_cont1(), 
@@ -792,7 +796,7 @@ server<-function(input, output, session){
         addLegend(colors = c("#8C510A", "#D8B365", "#F6E8C3","#F5F5F5", "#C7EAE5", "#5AB4AC",  "#01665E", "#808080"), labels=c("<-10", "-10 - -2.5", "-2.5 - 0", "0 - 2.5", "2.5 - 5", "5 - 10", ">10", "NA"), title="Annual GDP Growth Rate (%)") %>%
         addEasyButton(easyButton(icon="fa-globe",title="Home",onClick=JS("function(btn, map){ map.setView([40, 0], 1.4); }"))) %>%
         addCircles(data=verts_, opacity=.2, fillColor = "blue", color="blue", weight=2, radius =~IMF_cred/100000, lat = ~lat, lng = ~lon)
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       leaflet(options = leafletOptions(minZoom = 1, maxZoom = 7))%>%
         setView(lat=lat_re(), lng=lng_re(), zoom=zoom_re())%>%
         addPolygons(data=dat_i(),weight=.5, color="black", fillColor=pal2(), fillOpacity = .75, popup=pop_cont2(), 
@@ -923,7 +927,7 @@ server<-function(input, output, session){
                                      "GDP Growth Rate: ", dat_c()@data$gdp_growth, "%","<extra></extra>"))%>%
           layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from China"))
       }
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       if(!input$view %in% c("World", "")){
         plot_ly(data=filter(dat_c()@data, CONTINENT==input$view), x=~inv_tot, y=~gini, type="scatter", mode="markers", marker=list(color="#AA381E"),
                 hovertemplate=paste0("Country: ", filter(dat_c()@data, CONTINENT==input$view)$SOVEREIGNT, "<br>",
@@ -969,7 +973,7 @@ server<-function(input, output, session){
                                      "GDP Growth Rate: ", dat_i()@data$gdp_growth, "%","<extra></extra>"))%>%
           layout(title="GDP Growth",yaxis=list(title="Annual GDP Growth"),xaxis=list(title="Investment from IMF"))
       }
-    }else if(input$var_e=="Gini"){
+    }else if(input$var_e=="Inequality"){
       if(!input$view %in% c("World", "")){
         plot_ly(data=filter(dat_i()@data, CONTINENT==input$view), x=~IMF_cred, y=~gini, type="scatter", mode="markers", marker=list(color="#05358B"),
                 hovertemplate=paste0("Country: ", filter(dat_i()@data, CONTINENT==input$view)$SOVEREIGNT, "<br>",
@@ -1359,6 +1363,28 @@ server<-function(input, output, session){
   output$details_text<-renderText({
     "Here, you can find more specific information regarding investment from the IMF and China over time either globally or for an individual country."
   })
+  
+  argle<-reactive(
+    if(input$var_e=="GDP Growth"){
+      "Annual year-on-year percent increase in GDP, as provided by the World Bank. Click on a country to find specific information."
+    }else if(input$var_e=="Unemployment"){
+      "Percent unemployed in each country annually, as provided by the World Bank. Click on a country to find specific information."
+    }else if(input$var_e=="Inequality"){
+      "Inequality measured by each country's annual Gini coefficient, as estimated by the World Bank. Click on a country to find specific information."
+    }
+  )
+  output$econ_var_desc<-renderText(argle())
+  
+  bargle<-reactive(
+    if(input$var_h=="Undernourishment Prevelance"){
+      "Percent of a country's population undernourished, as provided by the World Bank. Click on a country to find specific information."
+    }else if(input$var_h=="Democracy Score"){
+      "Countries' scores on the Varieties of Democracy Institute's Egalitarian Democracy scale. The scale measures the overall equality and assurance of rights to a country's citizens. Click on a country to find specific information."
+    }else if(input$var_h=="Freedom of Expression"){
+      "Countries' scores on the Varieties of Democracy Institute's Freedom of Expression scale, measuring the abilities of citizens to speak politically without governmental repurcussion. Click on a country to find specific information."
+    }
+  )
+  output$hr_var_desc<-renderText(bargle())
 } #This one ends server
 
 shinyApp(ui, server)
